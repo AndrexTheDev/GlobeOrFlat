@@ -16,10 +16,14 @@ import 'screens/modes/eratosthenes_screen.dart';
 import 'screens/modes/horizon_dip_screen.dart';
 import 'screens/modes/track_drive_screen.dart';
 import 'screens/modes/water_sightline_screen.dart';
+import 'services/ad_config.dart';
 import 'services/calibration_service.dart';
+import 'services/coinzilla_rewarded_service.dart';
 import 'services/keystore_service.dart';
 import 'services/offline_db_service.dart';
 import 'services/sync_manager.dart';
+import 'widgets/adsterra_banner_widget.dart';
+import 'widgets/crypto_donation_modal.dart';
 
 /// Point this at your deployed worker (see backend README).
 const String kApiBaseUrl = String.fromEnvironment(
@@ -166,10 +170,16 @@ class _HomeDashboard extends StatelessWidget {
       appBar: AppBar(
         title: const Text('GlobeOrFlat'),
         actions: <Widget>[
+          const _WalletChip(),
           IconButton(
             tooltip: 'Recalibrate sensors',
             icon: const Icon(Icons.tune),
             onPressed: () => _recalibrate(context),
+          ),
+          IconButton(
+            tooltip: 'Support the developer (crypto donations)',
+            icon: const Icon(Icons.favorite_border),
+            onPressed: () => showCryptoDonationModal(context),
           ),
         ],
       ),
@@ -230,6 +240,10 @@ class _HomeDashboard extends StatelessWidget {
           ],
         ),
       ),
+      // Sticky Adsterra footer — dashboard is a non-camera screen.
+      bottomNavigationBar: AdConfig.adsEnabled
+          ? const StickyAdBar(child: AdsterraBanner.sticky())
+          : null,
     );
   }
 
@@ -309,6 +323,60 @@ class _SyncStatusCard extends StatelessWidget {
                       size: 16, color: Colors.orangeAccent),
               ],
             ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Feature-token balance chip. Tapping earns a token via the Coinzilla
+/// rewarded flow (or spends a stocked one and shows what it unlocks).
+class _WalletChip extends StatelessWidget {
+  const _WalletChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: FeatureTokenWallet.instance.balanceNotifier,
+      builder: (BuildContext context, int balance, _) {
+        return Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: ActionChip(
+            avatar: Icon(
+              Icons.workspace_premium,
+              size: 18,
+              color: balance > 0 ? const Color(0xFF4CFF87) : Colors.white38,
+            ),
+            label: Text('$balance'),
+            labelStyle: const TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w700),
+            tooltip: 'Feature tokens — earned from rewarded ads. They unlock '
+                'the PDF audit report, CSV export, the 3D visualizer and '
+                'priority ledger uploads.',
+            onPressed: () async {
+              final CoinzillaRewardedService service =
+                  CoinzillaRewardedService();
+              final RewardedAdOutcome outcome = await service.showRewardedAd(
+                context,
+                rewardName: 'Feature token',
+              );
+              if (!context.mounted) return;
+              final String message = switch (outcome) {
+                RewardedAdOutcome.earned =>
+                  '+1 feature token — spend it on premium actions',
+                RewardedAdOutcome.dismissedEarly =>
+                  'Ad closed early — no token earned',
+                RewardedAdOutcome.failed =>
+                  'Ad unavailable — token granted anyway',
+              };
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: const Color(0xFF102A43),
+                  content: Text(message),
+                ),
+              );
+            },
           ),
         );
       },

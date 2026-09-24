@@ -137,6 +137,19 @@ flutter run --dart-define=GOF_API_BASE_URL=https://globeorflat-api.<you>.workers
 
 Minimum Android 6.0 (API 23) with barometer + gyroscope + compass + GNSS.
 
+## Monetization (ads & crypto donations)
+
+The app funds its free open API through a crypto-focused monetization stack:
+
+| Piece | File | Notes |
+| --- | --- | --- |
+| Sticky bottom banner + mid-result banner | `lib/widgets/adsterra_banner_widget.dart` | Adsterra JS tag in a `webview_flutter` wrapper; IAB 320×50 / 300×250 / 728×90; clearly-labeled test placeholder while `AdConfig.testMode` is on. Mounted **only on non-camera screens**. |
+| Rewarded video + feature tokens | `lib/services/coinzilla_rewarded_service.dart` | VAST 2/3/4 parsing (namespace-agnostic, prefers highest-bitrate MP4) played via `video_player` in a non-dismissable modal; 30 s minimum watch clock (5 s in test mode); completion grants a persisted `FeatureToken` spent on premium actions (PDF report, CSV export, 3D visualizer, ledger upload). If the ad network fails the action unlocks anyway — documented product decision. |
+| Crypto donation modal | `lib/widgets/crypto_donation_modal.dart` | Cyberpunk dialog with QR codes + 1-tap copy for SOL / BTC (bech32) / ETH. Addresses are structurally validated in `test/monetization_test.dart`. |
+
+Paste your zone keys / VAST tag into `lib/services/ad_config.dart` and flip
+`testMode = false` before shipping. Never commit real keys to public forks.
+
 ## Notes
 
 * Signatures are produced by `SHA256withECDSA` (ASN.1 DER) — exactly what the

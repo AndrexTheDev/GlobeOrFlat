@@ -18,6 +18,12 @@ dependencies:
   geolocator: ^13.0.1         # GNSS position stream
   camera: ^0.11.0+2           # AR viewfinder for the measurement modes
 
+  # Monetization
+  webview_flutter: ^4.10.0    # Adsterra banner wrapper (JS tag host)
+  video_player: ^2.9.2        # Coinzilla rewarded video playback
+  qr_flutter: ^4.1.0          # donation address QR codes
+  xml: ^6.5.0                 # VAST tag parsing
+
   # Storage & connectivity
   sqflite: ^2.3.3             # offline measurement queue
   path: ^2.1.4

@@ -440,9 +440,9 @@ class _HorizonDipHudPainter extends CustomPainter {
 
     // Legend.
     _legend(canvas, size, 'green: 0° true horizontal (EKF pitch)',
-        Offset(12, yHorizon0.clamp(20, size.height - 90)));
+        Offset(12, yHorizon0.clamp(20, size.height - 90).toDouble()));
     _legend(canvas, size, 'cyan: globe prediction θ = 1.06′·√h',
-        Offset(12, yGlobe.clamp(20, size.height - 60)));
+        Offset(12, yGlobe.clamp(20, size.height - 60).toDouble()));
 
     if (!hasFix) {
       labelTp.text = const TextSpan(
