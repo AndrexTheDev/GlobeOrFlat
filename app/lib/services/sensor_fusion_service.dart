@@ -421,6 +421,10 @@ class FusedSample {
   final double roll;
   final double heading;
 
+  /// Elevation of the camera boresight (body +z axis) above the horizontal
+  /// plane [deg] — orientation-independent, this is what AR overlays project.
+  final double boresightElevationDeg;
+
   const FusedSample({
     required this.timestampMs,
     required this.altitude,
@@ -432,6 +436,7 @@ class FusedSample {
     required this.pitch,
     required this.roll,
     required this.heading,
+    required this.boresightElevationDeg,
   });
 }
 
@@ -827,6 +832,14 @@ class SensorFusionService {
     if (ekf != null && nowMs - _lastSampleEmitMs >= 200) {
       _lastSampleEmitMs = nowMs;
       final (double yaw, double pitch, double roll) = _attitude.toEuler();
+      // Camera boresight: rotate body +z into the world frame; its z component
+      // is sin(elevation above the horizontal plane).
+      final FusionVector3 boresight = _attitude.rotate(const FusionVector3(0, 0, 1));
+      final double boreSin = boresight.z < -1.0
+          ? -1.0
+          : (boresight.z > 1.0 ? 1.0 : boresight.z);
+      final double boresightElevationDeg =
+          math.asin(boreSin) * 180.0 / math.pi;
       _lastSample = FusedSample(
         timestampMs: _sessionStartEpochMs + nowMs.round(),
         altitude: ekf.altitude,
@@ -838,6 +851,7 @@ class SensorFusionService {
         pitch: pitch,
         roll: roll,
         heading: yaw,
+        boresightElevationDeg: boresightElevationDeg,
       );
       if (!_sampleController.isClosed) {
         _sampleController.add(_lastSample!);

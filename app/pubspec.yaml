@@ -16,6 +16,7 @@ dependencies:
   # Sensors & location
   sensors_plus: ^6.1.1        # accelerometer / gyro / magnetometer / barometer
   geolocator: ^13.0.1         # GNSS position stream
+  camera: ^0.11.0+2           # AR viewfinder for the measurement modes
 
   # Storage & connectivity
   sqflite: ^2.3.3             # offline measurement queue

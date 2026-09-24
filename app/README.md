@@ -74,6 +74,53 @@ Outputs applied to all future measurements: gyro bias (mean ω at rest),
 magnetometer hard-iron offset `(max+min)/2`, soft-iron scale (normalised
 `max−min`/2).
 
+## The four measurement modes
+
+| Mode | Screen | Physics | Recorded `curvature_deviation_percentage` |
+| --- | --- | --- | --- |
+| **A · Horizon Dip** | `screens/modes/horizon_dip_screen.dart` | θ ≈ 1.06′·√h; geometric √(2h/R) shown for context | (measured dip − 1.06′√h) / (1.06′√h) · 100 |
+| **B · Water Sightline** | `screens/modes/water_sightline_screen.dart` | h_hidden = (d − 3.57√h_obs)² / (2·R_eff), R_eff = R/(1−k) = 7408.1 km | (estimated hidden − predicted) / predicted · 100 |
+| **C · Track & Curve Drive** | `screens/modes/track_drive_screen.dart` | drop = 0.0785·s² sampled every 100 m vs measured EKF profile | 100·(rms_flat − rms_globe)/(rms_flat + rms_globe) |
+| **D · Eratosthenes Synchro** | `screens/modes/eratosthenes_screen.dart` | solar noon = 12:00 − EoT − 4·lon; elevation = atan(1/(shadow/stick)) | null (computed later from the paired site) |
+
+All physics lives in two pure, fully unit-tested modules:
+
+* **`lib/physics/earth_curvature.dart`** — dip, horizon distance, occlusion,
+  curvature drop, refraction (k = 0.14, R_eff = R/(1−k)), deviation metrics.
+* **`lib/physics/solar_position.dart`** — Spencer (NOAA-style) equation of
+  time + declination, solar noon, sun elevation, shadow geometry.
+
+Expected values are locked in `test/physics_test.dart` against an
+independently computed reference (almanac cross-checks: EoT Feb 11 ≈ −14.2′,
+Nov 3 ≈ +16.4′; declination Jun 21 ≈ +23.45°; Madrid solar noon 2026-03-20 =
+12:23 UTC).
+
+### Mode A — how the AR HUD works
+
+The HUD projects world elevation angles onto the screen using the camera
+boresight elevation β (orientation-independent, from the fusion quaternion)
+and an assumed 60° vertical FOV:
+
+```
+y(elevation) = screen_center + (β − elevation) · px_per_degree
+```
+
+* **green line** — elevation 0° (true horizontal)
+* **cyan dashed** — elevation −θ (globe-predicted horizon)
+* the vertical gap between them is the globe prediction, in pixels
+
+Point the crosshair at the visible horizon and hold steady: the measured dip
+is −β at capture time. On a flat Earth the cyan line would sit on the green
+one — the gap *is* the hypothesis under test.
+
+### Mode D — the sync code
+
+Each Eratosthenes measurement gets a random 6-digit code. A partner at a
+different latitude enters it before their own measurement; **both raw dumps
+carry both codes** as `# eratosthenes,sync_code=…` / `partner_code=…`
+comments, so researchers can pair the two sites and reproduce the classical
+two-obelisk computation of Earth's circumference.
+
 ## Build & run
 
 > Scaffold the Android runner once with

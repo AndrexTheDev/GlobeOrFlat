@@ -17,8 +17,14 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- AR viewfinder (Modes A & B & D) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
     <!-- Unthrottled sensor sampling on Android 12+ (we use ≤50 Hz, harmless to declare) -->
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+
+    <!-- AR viewfinder used by Modes A/B/D -->
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <uses-feature android:name="android.hardware.sensor.barometer" android:required="true" />
     <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="true" />

@@ -9,15 +9,16 @@
 //   4. SyncManager.start()               — drains queue whenever online
 // ============================================================================
 
-import 'dart:convert' show jsonEncode, utf8;
-
 import 'package:flutter/material.dart';
 
 import 'screens/calibration_screen.dart';
+import 'screens/modes/eratosthenes_screen.dart';
+import 'screens/modes/horizon_dip_screen.dart';
+import 'screens/modes/track_drive_screen.dart';
+import 'screens/modes/water_sightline_screen.dart';
 import 'services/calibration_service.dart';
 import 'services/keystore_service.dart';
 import 'services/offline_db_service.dart';
-import 'services/sensor_fusion_service.dart';
 import 'services/sync_manager.dart';
 
 /// Point this at your deployed worker (see backend README).
@@ -116,211 +117,201 @@ class _BootGateState extends State<_BootGate> {
           _startSync();
           Navigator.of(context).pushReplacement(
             MaterialPageRoute<Widget>(
-              builder: (BuildContext _) => _MeasurementHome(sync: _sync),
+              builder: (BuildContext _) =>
+                  _HomeDashboard(sync: _sync, keystore: _keystore),
             ),
           );
         },
       );
     }
-    return _MeasurementHome(sync: _sync);
+    return _HomeDashboard(sync: _sync, keystore: _keystore);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Measurement home (deliberately minimal — the focus of this deliverable is
-// the sensor fusion engine, signing, offline queue and calibration gate)
+// Home dashboard: sync status + the four measurement modes
 // ---------------------------------------------------------------------------
 
-class _MeasurementHome extends StatefulWidget {
-  const _MeasurementHome({required this.sync});
+class _HomeDashboard extends StatelessWidget {
+  const _HomeDashboard({required this.sync, required this.keystore});
 
   final SyncManager sync;
+  final KeystoreService keystore;
 
-  @override
-  State<_MeasurementHome> createState() => _MeasurementHomeState();
-}
-
-class _MeasurementHomeState extends State<_MeasurementHome> {
-  final SensorFusionService _fusion = SensorFusionService();
-  MeasurementMode _mode = MeasurementMode.horizonDip;
-  String _status = 'Idle';
-  bool _measuring = false;
-  FusedSample? _last;
-
-  @override
-  void initState() {
-    super.initState();
-    _fusion.samples.listen((FusedSample s) {
-      if (mounted) {
-        setState(() => _last = s);
-      }
-    });
-  }
-
-  Future<void> _start() async {
-    try {
-      _fusion.calibration = await CalibrationStorage().load();
-      await _fusion.start(_mode);
-      setState(() {
-        _measuring = true;
-        _status = 'Measuring ${_mode.wireName}…';
-      });
-    } on SensorPermissionException catch (e) {
-      setState(() => _status = e.message);
-    } on StateError catch (e) {
-      setState(() => _status = e.message);
-    }
-  }
-
-  Future<void> _stopAndEnqueue() async {
-    final SessionResult result = await _fusion.stop();
-    if (result.lastPosition == null) {
-      // The backend requires plausible coordinates; a 0/0 fallback would
-      // poison researcher datasets, so we refuse to queue this session.
-      setState(() {
-        _measuring = false;
-        _status =
-            'No GPS fix was acquired — session not queued. Try again outdoors.';
-      });
-      return;
-    }
-    final String deviceId = await OfflineDbService.instance.ensureDeviceId();
-    final String payloadJson = _buildPayloadJson(result, deviceId);
-    final String csvSha256 =
-        KeystoreService.sha256HexOfBytes(utf8.encode(result.log.csv));
-    final String uuid = await OfflineDbService.instance.enqueueMeasurement(
-      deviceId: deviceId,
-      mode: result.mode.wireName,
-      payloadJson: payloadJson,
-      rawCsv: result.log.csv,
-      csvSha256: csvSha256,
+  Future<void> _openMode(BuildContext context, Widget screen) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<Widget>(builder: (BuildContext _) => screen),
     );
-    setState(() {
-      _measuring = false;
-      _status = 'Queued $uuid — waiting for connectivity';
-    });
-    await widget.sync.drain(); // if we are online this uploads immediately
   }
 
-  String _buildPayloadJson(SessionResult r, String deviceId) {
-    // Key order is preserved through sync (jsonDecode → jsonEncode keeps the
-    // insertion order), and `signed_at` is refreshed at upload time there.
-    final Map<String, dynamic> payload = <String, dynamic>{
-      'device_id': deviceId,
-      'mode': r.mode.wireName,
-      'timestamp': r.startedAtMs,
-      'signed_at': 0, // refreshed by SyncManager right before signing
-      'gps_lat': r.lastPosition?.latitude ?? 0.0,
-      'gps_lon': r.lastPosition?.longitude ?? 0.0,
-      'altitude_m': double.parse(r.meanFusedAltitude.toStringAsFixed(3)),
-    };
-    return jsonEncode(payload);
+  Future<void> _recalibrate(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<Widget>(
+        builder: (BuildContext _) => CalibrationScreen(
+          onCalibrated: (CalibrationResult result) {
+            CalibrationStorage().save(result);
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Recalibration saved')),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('GlobeOrFlat')),
+      appBar: AppBar(
+        title: const Text('GlobeOrFlat'),
+        actions: <Widget>[
+          IconButton(
+            tooltip: 'Recalibrate sensors',
+            icon: const Icon(Icons.tune),
+            onPressed: () => _recalibrate(context),
+          ),
+        ],
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            StreamBuilder<SyncState>(
-              stream: widget.sync.state,
-              initialData: widget.sync.currentState,
-              builder: (BuildContext context, AsyncSnapshot<SyncState> snap) {
-                final SyncState s = snap.data ?? widget.sync.currentState;
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          s.syncing
-                              ? 'Syncing…'
-                              : s.online
-                                  ? 'Online'
-                                  : 'Offline — measurements queue locally',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 4),
-                        Text('${s.pendingCount} measurement(s) pending upload'),
-                        if (s.lastError != null)
-                          Text(
-                            s.lastError!,
-                            style: const TextStyle(
-                                color: Colors.redAccent, fontSize: 12),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
-                    ),
+            _SyncStatusCard(sync: sync),
+            const SizedBox(height: 16),
+            const Text(
+              'Measurement modes',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: GridView.count(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.25,
+                children: <Widget>[
+                  _modeCard(
+                    context,
+                    icon: Icons.waves,
+                    color: const Color(0xFF18E0FF),
+                    title: 'Horizon Dip',
+                    subtitle: 'AR HUD · θ = 1.06′·√h',
+                    screen: HorizonDipScreen(sync: sync),
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<MeasurementMode>(
-              value: _mode,
-              decoration: const InputDecoration(
-                labelText: 'Experiment mode',
-                border: OutlineInputBorder(),
-              ),
-              items: MeasurementMode.values
-                  .map((MeasurementMode m) => DropdownMenuItem<MeasurementMode>(
-                        value: m,
-                        child: Text(m.wireName),
-                      ))
-                  .toList(),
-              onChanged: _measuring
-                  ? null
-                  : (MeasurementMode? m) => setState(() => _mode = m!),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Text('Fused altitude (EKF: baro + GNSS)',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 6),
-                    Text(
-                      _last == null
-                          ? '—'
-                          : '${_last!.altitude.toStringAsFixed(2)} m'
-                              '  (v=${_last!.verticalVelocity.toStringAsFixed(2)} m/s)',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    Text(
-                      _last == null
-                          ? 'waiting for sensors…'
-                          : 'baro ${_last!.baroAltitude.toStringAsFixed(2)} m · '
-                              'gnss ${_last!.gpsAltitude?.toStringAsFixed(2) ?? '—'} m · '
-                              '${_last!.pressureHpa.toStringAsFixed(1)} hPa',
-                      style: const TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const Spacer(),
-            Text(_status, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 52,
-              child: ElevatedButton.icon(
-                icon: Icon(_measuring ? Icons.stop : Icons.play_arrow),
-                label: Text(_measuring ? 'Stop & queue upload' : 'Start measurement'),
-                onPressed: _measuring ? _stopAndEnqueue : _start,
+                  _modeCard(
+                    context,
+                    icon: Icons.sailing,
+                    color: const Color(0xFFFF6B61),
+                    title: 'Water Sightline',
+                    subtitle: 'occlusion over water',
+                    screen: WaterSightlineScreen(sync: sync),
+                  ),
+                  _modeCard(
+                    context,
+                    icon: Icons.directions_car,
+                    color: const Color(0xFF4CFF87),
+                    title: 'Track & Curve',
+                    subtitle: 'drive profile · 0.0785·s²',
+                    screen: TrackDriveScreen(sync: sync),
+                  ),
+                  _modeCard(
+                    context,
+                    icon: Icons.wb_sunny,
+                    color: const Color(0xFFFFC843),
+                    title: 'Eratosthenes',
+                    subtitle: 'P2P shadow sync',
+                    screen: EratosthenesScreen(sync: sync),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _modeCard(
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required Widget screen,
+  }) {
+    return Card(
+      color: const Color(0xFF102A43),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openMode(context, screen),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(icon, color: color, size: 30),
+              const Spacer(),
+              Text(title,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(subtitle,
+                  style: const TextStyle(color: Colors.white38, fontSize: 11)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SyncStatusCard extends StatelessWidget {
+  const _SyncStatusCard({required this.sync});
+
+  final SyncManager sync;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SyncState>(
+      stream: sync.state,
+      initialData: sync.currentState,
+      builder: (BuildContext context, AsyncSnapshot<SyncState> snap) {
+        final SyncState s = snap.data ?? sync.currentState;
+        return Card(
+          color: const Color(0xFF102A43),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  s.syncing
+                      ? Icons.sync
+                      : (s.online ? Icons.cloud_done : Icons.cloud_off),
+                  size: 18,
+                  color: s.syncing
+                      ? Colors.orangeAccent
+                      : (s.online ? Colors.greenAccent : Colors.white38),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    s.syncing
+                        ? 'Syncing measurements…'
+                        : s.online
+                            ? 'Online — ${s.pendingCount} pending'
+                            : 'Offline — ${s.pendingCount} queued locally',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                if (s.lastError != null)
+                  const Icon(Icons.warning_amber_rounded,
+                      size: 16, color: Colors.orangeAccent),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
