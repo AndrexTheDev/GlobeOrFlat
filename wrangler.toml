@@ -51,14 +51,20 @@ SIGNATURE_MAX_SKEW_MS = "300000"      # +/- 5 min anti-replay clock skew window
 AUTO_VERIFY_SIGNED_UPLOADS = "false"  # if "true", signature-valid uploads enter the public feed immediately (moderators can still append REJECTED events)
 
 # ----------------------------------------------------------------------------
-# Optional: Workers rate limiting (beta binding).
-# Uncomment to enable a platform-level rate limiter; the worker degrades
-# gracefully (allow-all) when the binding is absent.
+# Workers rate limiting (platform binding).
+# Global per-IP baseline for /api/v1/*: 300 requests / 60 s — far above any
+# legitimate client or test-suite load, hard stop for naive floods.
+# The worker fails OPEN if the binding errors (availability over strictness);
+# volumetric DDoS at the edge remains Cloudflare's job.
 #
-# [[unsafe.bindings]]
-# name = "RATE_LIMITER"
-# type = "ratelimit"
-# namespace_id = "1001"
+[[unsafe.bindings]]
+name = "RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+
+[unsafe.bindings.simple]
+limit = 300
+period = 60
 # ----------------------------------------------------------------------------
 
 [observability]

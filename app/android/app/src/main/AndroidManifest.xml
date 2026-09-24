@@ -46,12 +46,14 @@
 
     <!-- allowBackup=false: the device identity key pair and the offline
          measurement queue must never leak into cloud backups or
-         device-to-device transfers. -->
+         device-to-device transfers. networkSecurityConfig: HTTPS only,
+         system CAs only (see res/xml/network_security_config.xml). -->
     <application
         android:label="GlobeOrFlat"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:allowBackup="false">
+        android:allowBackup="false"
+        android:networkSecurityConfig="@xml/network_security_config">
         <activity
             android:name=".MainActivity"
             android:exported="true"

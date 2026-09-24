@@ -91,6 +91,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 900 });
 
+  // CSP violation collector — injected before any page script runs.
+  // The hub server applies the production _headers (hash-pinned CSP),
+  // so any violation here means the portal broke its own policy.
+  await page.evaluateOnNewDocument(() => {
+    window.__gofCspViolations = [];
+    document.addEventListener("securitypolicyviolation", (e) => {
+      window.__gofCspViolations.push(`${e.violatedDirective} <- ${e.blockedURL || e.sourceFile || "?"}`);
+    });
+  });
+
   let expectedApi404 = false; // offline-capsule fallback: /api/v1/* 404s on the static host by design
   page.on("response", (res) => {
     if (res.status() === 404 && res.url().includes("/api/v1/")) expectedApi404 = true;
@@ -135,7 +145,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   };
 
   console.log("\n=== S1 · BOOT / OFFLINE CAPSULE ===");
-  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  let hubHeaders = {}; // production headers must actually reach the browser
+  const navRes = await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  hubHeaders = Object.fromEntries(Object.entries(navRes?.headers() ?? {}).map(([k, v]) => [k.toLowerCase(), v]));
   await page.waitForSelector("#feedBody tr", { timeout: 30000 });
   await sleep(2500); // tailwind v4 runtime + stats settle
   const rowCount = await page.$$eval("#feedBody tr", (trs) => trs.length);
@@ -318,6 +330,30 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   );
   check("zero page errors", pageErrors.length === 0, pageErrors.slice(0, 5).join(" | "));
   check("zero failed requests", failedRequests.length === 0, failedRequests.slice(0, 5).join(" | "));
+
+  console.log("\n=== SECURITY ===");
+  const cspHeader = hubHeaders["content-security-policy"] || "";
+  check(
+    "hub serves production CSP (sha256-pinned, no unsafe-inline scripts)",
+    cspHeader.includes("sha256-") && !/script-src[^;]*'unsafe-inline'/.test(cspHeader),
+    cspHeader.slice(0, 120),
+  );
+  const cspViolations = await page.evaluate(() => window.__gofCspViolations || ["<collector missing>"]);
+  // Same benign exception as run_live_api: Cesium's bundled protobuf.js
+  // attempts eval, catches the CSP rejection, uses its slow fallback.
+  const benign = (v) =>
+    v.startsWith("script-src <- https://cdn.jsdelivr.net/npm/cesium@1.119.0/Build/Cesium/Cesium.js");
+  const realViolations = cspViolations.filter((v) => !benign(v) && !v.includes("<collector missing>"));
+  check(
+    "zero CSP violations across the whole walk (protobuf fallback tolerated)",
+    realViolations.length === 0 && !cspViolations.includes("<collector missing>"),
+    `${cspViolations.length - realViolations.length} benign, real: ${realViolations.slice(0, 3).join(" | ") || "none"}`,
+  );
+  check(
+    "hub serves nosniff + frame-deny",
+    hubHeaders["x-content-type-options"] === "nosniff" && hubHeaders["x-frame-options"] === "DENY",
+    `nosniff=${hubHeaders["x-content-type-options"]} frame=${hubHeaders["x-frame-options"]}`,
+  );
 
   await browser.close();
 

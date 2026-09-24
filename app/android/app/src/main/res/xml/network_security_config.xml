@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  GlobeOrFlat network security policy.
+  SPDX-License-Identifier: MIT
+
+  All backend traffic is HTTPS-only. cleartextTrafficPermitted="false"
+  blocks plain http on every API level (pre-28 defaults allowed it),
+  and the explicit system trust anchors reject user-installed CA
+  certificates as script sources of man-in-the-middle attacks.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

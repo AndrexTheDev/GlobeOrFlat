@@ -112,17 +112,19 @@ if (fs.existsSync(headersPath)) {
   check("_headers sets nosniff", /x-content-type-options/i.test(raw));
 
   // --- 3b) CSP script-hash consistency (index.html <-> _headers) --------------
+  // CSP hashes are the SHA-256 digest in the CSP-standard BASE64 form.
   const cspLine = raw.split("\n").find((l) => /content-security-policy:/i.test(l)) || "";
-  const listedHashes = [...cspLine.matchAll(/'sha256-([0-9a-f]{64})'/gi)].map((m) => m[1].toLowerCase());
+  const listedHashes = [...cspLine.matchAll(/'sha256-([A-Za-z0-9+/=]{44}|[0-9a-f]{64})'/gi)].map((m) => m[1].toLowerCase());
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const inlineBodies = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   const inlineHashes = inlineBodies.map((b) =>
-    crypto.createHash("sha256").update(Buffer.from(b, "utf8")).digest("hex"),
+    crypto.createHash("sha256").update(Buffer.from(b, "utf8")).digest("base64").toLowerCase(),
   );
   check("CSP script-src drops unsafe-inline", !/script-src[^;]*'unsafe-inline'/i.test(cspLine));
   check("CSP has no unsafe-eval", !/'unsafe-eval'/i.test(cspLine));
+  check("CSP keeps wasm-unsafe-eval for Cesium decoders", /'wasm-unsafe-eval'/i.test(cspLine));
   for (const h of inlineHashes) {
-    check(`CSP pins inline script sha256:${h.slice(0, 12)}\u2026`, listedHashes.includes(h));
+    check(`CSP pins inline script sha256:${h.slice(0, 12)}\u2026 (base64 form)`, listedHashes.includes(h));
   }
   for (const h of listedHashes) {
     check(`CSP hash sha256:${h.slice(0, 12)}\u2026 matches an inline script`, inlineHashes.includes(h));
@@ -133,7 +135,7 @@ if (fs.existsSync(headersPath)) {
 const ignore = fs.existsSync(path.join(ROOT, ".assetsignore"))
   ? fs.readFileSync(path.join(ROOT, ".assetsignore"), "utf8")
   : "";
-for (const needed of ["README.md", "package.json", "test", "node_modules"]) {
+for (const needed of ["README.md", "package.json", "package-lock.json", "test", "node_modules"]) {
   check(`.assetsignore covers ${needed}`, ignore.includes(needed));
 }
 

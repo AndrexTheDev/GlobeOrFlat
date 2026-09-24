@@ -346,6 +346,25 @@ await step("CORS origin is wildcard (public reads; writes are token-gated, not c
   assertNe(res.headers.get("access-control-allow-credentials"), "true", "no credentialed CORS");
 });
 
+// ========== 6 · RATE LIMITING (MUST run LAST — the flood poisons the =========
+// per-IP window for up to 60 s, so nothing may follow in the same window) ====
+console.log("--- rate limiting (flood; final check — poisons the window) ---");
+
+await step("sustained flood trips the platform rate limiter (429 rate_limited)", async () => {
+  const codes = new Map();
+  let saw429Body = null;
+  const one = async () => {
+    const r = await fetch(`${BASE_URL}/api/v1/health`);
+    codes.set(r.status, (codes.get(r.status) ?? 0) + 1);
+    if (r.status === 429 && !saw429Body) saw429Body = await r.json().catch(() => null);
+  };
+  await Promise.all(Array.from({ length: 400 }, one));
+  if (!codes.has(429)) {
+    throw new Error(`no 429 after a 400-request flood: ${JSON.stringify([...codes])}`);
+  }
+  if (saw429Body?.error !== "rate_limited") throw new Error(`429 body malformed: ${JSON.stringify(saw429Body)}`);
+});
+
 console.log(`\n=== security audit: ${passed} passed, ${failed} failed ===`);
 if (failed > 0) {
   for (const f of failures) console.log(`  \u2717 ${f}`);

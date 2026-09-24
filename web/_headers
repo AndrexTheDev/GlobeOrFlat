@@ -3,9 +3,12 @@
 # this static hub never handles secrets.
 #
 # script-src: no 'unsafe-inline'. The two inline scripts in index.html
-# (CESIUM_BASE_URL boot + footer year) are pinned by exact SHA-256 hashes.
-# If you edit an inline script, recompute its hash and update it here AND
-# `npm run check:pages` will fail loudly on any mismatch.
+# (CESIUM_BASE_URL boot + footer year) are pinned by SHA-256 hashes in the
+# CSP-standard BASE64 form. If you edit an inline script, recompute its
+# hash and update it here — `npm run check:pages` fails loudly on mismatch.
+# 'wasm-unsafe-eval' is required by Cesium's WebAssembly decoders (narrower
+# than 'unsafe-eval' — no JavaScript eval).
+# style-src: cdn.jsdelivr.net serves the Cesium widgets stylesheet.
 # style-src keeps 'unsafe-inline' (Tailwind runtime + inline style attributes).
 
 /*
@@ -13,7 +16,7 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), camera=(), microphone=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-a7381a7ade1c920031b3e0370a29d4d7171791ce697f05e3f3af8c0d120e8865' 'sha256-5eafbd49d6ba2b77d54484eb73851f4da9c095807d404a1b92b9bdcca4ed50bc'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://cdn.jsdelivr.net; connect-src 'self' https: blob:; worker-src blob:;
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval' 'sha256-pzgaet4ckgAxs+A3CinU1xcXkc5pfwXj86+MDRIOiGU=' 'sha256-Xq+9Sda6K3fVRITrc4UfTanAlYB9QEobkrm9zKTtULw='; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://cdn.jsdelivr.net; connect-src 'self' https: blob:; worker-src blob:;
 
 /assets/*
   Cache-Control: public, max-age=86400

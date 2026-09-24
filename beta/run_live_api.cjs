@@ -105,6 +105,17 @@ async function seedVerifiedRecord() {
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)));
 
+  // CSP violation collector — the hub must run clean under its own policy
+  // even when it pulls live data cross-origin from the worker.
+  await page.evaluateOnNewDocument(() => {
+    window.__gofCspViolations = [];
+    document.addEventListener("securitypolicyviolation", (e) => {
+      window.__gofCspViolations.push(
+        `${e.effectiveDirective} <- ${(e.blockedURL || e.sourceFile || "?").slice(0, 90)} @${e.lineNumber ?? "?"}${e.sample ? " sample=" + e.sample.slice(0, 40) : ""}`,
+      );
+    });
+  });
+
   const results = [];
   const check = (name, ok, detail = "") => {
     results.push({ name, ok, detail });
@@ -135,7 +146,8 @@ async function seedVerifiedRecord() {
   console.log("\n=== LIVE INTEGRATION: hub \u2194 wrangler dev (D1 + R2) ===");
   const seeded = await seedVerifiedRecord();
   console.log(`  (seeded VERIFIED record ${seeded.id} via real ingest + ledger)`);
-  await page.goto(`${HUB}/?api=${API}`, { waitUntil: "domcontentloaded" });
+  const navRes = await page.goto(`${HUB}/?api=${API}`, { waitUntil: "domcontentloaded" });
+  const hubHeaders = Object.fromEntries(Object.entries(navRes?.headers() ?? {}).map(([k, v]) => [k.toLowerCase(), v]));
   await page.waitForFunction(
     () => window.__GOF && (window.__GOF.mode === "live" || window.__GOF.mode === "demo"),
     { timeout: 30000, polling: 400 },
@@ -202,6 +214,28 @@ async function seedVerifiedRecord() {
   console.log("  📸 L1_live_api_integration.png");
 
   check("zero page errors (live run)", errors.length === 0, errors.slice(0, 3).join(" | "));
+
+  const cspHeader = hubHeaders["content-security-policy"] || "";
+  check(
+    "hub serves production CSP (sha256-pinned)",
+    cspHeader.includes("sha256-") && !/script-src[^;]*'unsafe-inline'/.test(cspHeader),
+    cspHeader.slice(0, 120),
+  );
+  // In production the worker is https:// and matches connect-src https:.
+  // In the sandbox the dev hub appends the local worker origin via
+  // GOF_DEV_CONNECT — either way, NO real violation may ever fire.
+  const cspViolations = await page.evaluate(() => window.__gofCspViolations || ["<collector missing>"]);
+  // Benign, by-design exception: Cesium bundles protobuf.js, which ATTEMPTS an
+  // eval to build fast decoders, catches the CSP rejection itself and falls
+  // back to its slow path. Tolerated ONLY for the pinned CDN bundle.
+  const benign = (v) =>
+    v.startsWith("script-src <- https://cdn.jsdelivr.net/npm/cesium@1.119.0/Build/Cesium/Cesium.js");
+  const realViolations = cspViolations.filter((v) => !benign(v) && !v.includes("<collector missing>"));
+  check(
+    "zero CSP violations (only Cesium protobuf eval-fallback tolerated)",
+    realViolations.length === 0 && !cspViolations.includes("<collector missing>"),
+    `${cspViolations.length - realViolations.length} benign, real: ${realViolations.slice(0, 3).join(" | ") || "none"}`,
+  );
 
   await browser.close();
   const failed = results.filter((r) => !r.ok);

@@ -148,5 +148,20 @@
     "name": "zero failed requests",
     "ok": true,
     "detail": ""
+  },
+  {
+    "name": "hub serves production CSP (sha256-pinned, no unsafe-inline scripts)",
+    "ok": true,
+    "detail": "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval' 'sha256-pzgaet4ckgAxs+A3CinU1xcXkc5pfw"
+  },
+  {
+    "name": "zero CSP violations across the whole walk (protobuf fallback tolerated)",
+    "ok": true,
+    "detail": "2 benign, real: none"
+  },
+  {
+    "name": "hub serves nosniff + frame-deny",
+    "ok": true,
+    "detail": "nosniff=nosniff frame=DENY"
   }
 ]
