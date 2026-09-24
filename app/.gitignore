@@ -1,0 +1,27 @@
+# Flutter/Dart build output & tooling (app module)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+pubspec.lock
+build/
+
+# Android
+android/local.properties
+android/.gradle/
+android/key.properties
+android/app/upload-keystore.jks
+android/app/upload-keystore.p12
+**/*.keystore
+**/*.jks
+
+# iOS (not a target, keep the tree clean if someone opens it)
+ios/Pods/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Coverage
+coverage/

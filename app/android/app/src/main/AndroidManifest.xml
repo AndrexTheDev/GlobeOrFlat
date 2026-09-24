@@ -3,9 +3,10 @@
   GlobeOrFlat Android manifest (app module).
   SPDX-License-Identifier: MIT
 
-  NOTE: when you create the Flutter project with `flutter create --org dev.globeorflat app`,
-  merge these permissions + the MainActivity kotlin source into the generated scaffold.
-  Set minSdkVersion 23 in android/app/build.gradle.
+  NOTE: the full android/ scaffolding in this repo is authored by hand and
+  repaired idempotently by `flutter create .` in CI (gradle wrapper jar and
+  launcher icons are added; this manifest survives untouched).
+  minSdkVersion 23 is enforced in android/app/build.gradle.kts.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 

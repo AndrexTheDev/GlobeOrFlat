@@ -190,3 +190,33 @@ Paste your zone keys / VAST tag into `lib/services/ad_config.dart` and flip
   truncation so researchers can trust the data.
 * Uploads are idempotent: the backend's `UNIQUE signature_hash` turns crash
   replays into harmless `409 duplicate_measurement` responses.
+
+## Continuous integration (GitHub Actions)
+
+`.github/workflows/android.yml` builds the app on every push/PR touching `app/`:
+
+1. **test** — `flutter analyze --fatal-infos` + `flutter test` (Java 17, stable Flutter).
+2. **build** — `flutter build apk --release`, artifact `globeorflat-release-apk`;
+   on a version tag the APK is attached to a GitHub Release automatically —
+   that release asset is what the web hub's **GET APK** button links to.
+
+Release flow:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0     # → build + GitHub Release + APK
+```
+
+Implementation notes:
+
+* The `android/` scaffolding is authored by hand in this repo (manifest with
+  permissions + package-visibility queries, Keystore MainActivity, Gradle
+  Kotlin-DSL files). Every CI run performs `flutter create . --platforms
+  android --org dev.globeorflat` as an **idempotent repair**: it only adds
+  missing binary bits (gradle-wrapper.jar, launcher icons, `.metadata`) and
+  never touches existing files.
+* minSdk is pinned to **23** — the GOFv1 key is a hardware Keystore EC P-256
+  (SHA256withECDSA); geolocator requires 23 as well.
+* The release APK is debug-signed (installable). For Play Store uploads add
+  a real signing config (see TODO in `android/app/build.gradle.kts`).
+* `pubspec.lock` is git-ignored until the first local `flutter pub get`;
+  commit it afterwards for fully pinned CI builds.

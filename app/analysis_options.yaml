@@ -1,0 +1,11 @@
+# GlobeOrFlat — static analysis (Flutter standard lints).
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+
+linter:
+  rules:
+    # Keep the public API of services/models documented.
+    public_member_api_docs: false
