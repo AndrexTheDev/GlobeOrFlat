@@ -71,6 +71,25 @@ check(
   externalHosts.join(", "),
 );
 
+// --- 1b) SRI on every external script/stylesheet -----------------------------
+// Subresource Integrity pins the EXACT artifact bytes, not just the origin.
+// Any new external tag must ship integrity + crossorigin or this fails.
+const htmlText = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const extTags = [
+  ...htmlText.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)="(https?:\/\/[^"]+)"[^>]*>/g),
+].map((m) => m[0]);
+for (const tag of extTags) {
+  const url = tag.match(/(?:src|href)="(https?:\/\/[^"]+)"/)[1];
+  const hasIntegrity = /integrity="sha384-[A-Za-z0-9+/=]{64}"/.test(tag);
+  const hasCrossorigin = /crossorigin="anonymous"/.test(tag);
+  check(
+    `SRI integrity+crossorigin on ${url.split("/").slice(3).join("/").slice(0, 50)}`,
+    hasIntegrity && hasCrossorigin,
+    hasIntegrity ? (hasCrossorigin ? "" : "missing crossorigin") : "missing integrity",
+  );
+}
+check("external tags exist for SRI check", extTags.length >= 2, `${extTags.length} tags`);
+
 // --- 2) vendored libraries present ------------------------------------------
 for (const v of [
   "assets/vendor/tailwind.browser.js",

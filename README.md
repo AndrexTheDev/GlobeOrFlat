@@ -24,8 +24,9 @@ Built on Cloudflare Workers + [Hono](https://hono.dev) + Cloudflare D1 (SQLite) 
 8. [Append-only guarantees](#append-only-guarantees)
 9. [Public data access for scientists](#public-data-access-for-scientists)
 10. [Local development & testing](#local-development--testing)
-11. [Roadmap](#roadmap)
-12. [License](#license)
+11. [Security model & operations](docs/security.md)
+12. [Roadmap](#roadmap)
+13. [License](#license)
 
 ---
 
