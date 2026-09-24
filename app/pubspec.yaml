@@ -1,0 +1,38 @@
+name: globeorflat_app
+description: >-
+  GlobeOrFlat citizen-science client — EKF sensor fusion, Android Keystore
+  signed measurements, offline queue and automatic sync to the append-only
+  Cloudflare Workers backend.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Sensors & location
+  sensors_plus: ^6.1.1        # accelerometer / gyro / magnetometer / barometer
+  geolocator: ^13.0.1         # GNSS position stream
+
+  # Storage & connectivity
+  sqflite: ^2.3.3             # offline measurement queue
+  path: ^2.1.4
+  path_provider: ^2.1.4
+  shared_preferences: ^2.3.2  # calibration persistence
+  connectivity_plus: ^6.0.5   # sync trigger on connectivity restore
+
+  # Crypto & network
+  crypto: ^3.0.3              # sha256 for the GOFv1 canonical string
+  http: ^1.2.2                # multipart uploads
+  http_parser: ^2.1.0         # MediaType for the CSV part
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

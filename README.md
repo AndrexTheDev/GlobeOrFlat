@@ -75,6 +75,10 @@ Built on Cloudflare Workers + [Hono](https://hono.dev) + Cloudflare D1 (SQLite) 
 | `scripts/smoke_test.mjs` | End-to-end test: generates a P-256 key, signs and uploads a measurement, exercises every route. |
 | `.dev.vars.example` | Template for local secrets. |
 
+**Android client:** the Flutter app lives in [`app/`](./app) — sensor fusion
+EKF, Android Keystore signing, offline queue + auto-sync, and the interactive
+3D calibration screen. See [`app/README.md`](./app/README.md).
+
 ## Quickstart
 
 Prerequisites: Node.js ≥ 18, an npm account-free [Cloudflare account](https://dash.cloudflare.com/) (Workers free plan is sufficient).
