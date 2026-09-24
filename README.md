@@ -1,6 +1,9 @@
-# GlobeOrFlat — Backend
+# GlobeOrFlat
 
-**Append-only citizen-science API for Earth-curvature measurements.**
+**Open-source citizen geodesy platform.** Append-only measurement API
+(Cloudflare Workers + D1 + R2), Android sensor-fusion app (Flutter), and the
+public **Open Science Hub** web portal (Cesium 3D globe ⇄ flat-model AEQD
+plane).
 Built on Cloudflare Workers + [Hono](https://hono.dev) + Cloudflare D1 (SQLite) + Cloudflare R2.
 
 > Android users run one of four experiments — `HORIZON_DIP`, `WATER_SIGHTLINE`, `TRACK_DRIVE`, `ERATOSTHENES` — sign the result with a hardware-backed Android Keystore key, and upload it. Researchers query everything through a free, open, paginated JSON API.
@@ -73,6 +76,9 @@ Built on Cloudflare Workers + [Hono](https://hono.dev) + Cloudflare D1 (SQLite) 
 | `schema.sql` | D1 SQLite schema: tables, append-only triggers, verification ledger, indexes. |
 | `wrangler.toml` | Cloudflare Worker configuration (D1 + R2 bindings, vars). |
 | `scripts/smoke_test.mjs` | End-to-end test: generates a P-256 key, signs and uploads a measurement, exercises every route. |
+| `scripts/audit_backend.mjs` | Extended edge-case audit (validation, anti-replay, key rotation, CORS, ledger; `--triggers` proves the append-only triggers). |
+| `web/` | **Open Science Hub** — zero-build public SPA: dual projection engine (Cesium globe / AEQD plane), record inspector, share cards. Deploys to Cloudflare Pages as-is. |
+| `beta/` | Headless-Chromium beta harnesses + screenshot matrix for the web hub (dev-only, never deployed). |
 | `.dev.vars.example` | Template for local secrets. |
 
 **Android client:** the Flutter app lives in [`app/`](./app) — sensor fusion
@@ -112,6 +118,11 @@ npm run dev                   # http://127.0.0.1:8787
 
 # 5. Deploy
 npm run deploy                # https://globeorflat-api.<your-subdomain>.workers.dev
+
+# 6. Web hub (optional, local)
+cd web && python3 -m http.server 8080   # then open ?api=http://127.0.0.1:8787
+# Production: see web/README.md — Cloudflare Pages one-command deploy
+# or same-origin via the [assets] block in wrangler.toml.
 ```
 
 ## Configuration reference
@@ -350,30 +361,29 @@ If you use GlobeOrFlat data in a publication, please cite the project and includ
 public domain (CC0) to the maximum extent permitted by law.
 
 ## Local development & testing
-### Extended audit suites (this branch)
-
-- `node scripts/smoke_test.mjs` — 15-step happy path (sign → upload → verify → dump).
-- `node scripts/audit_backend.mjs` — 21 edge-case checks (validation, anti-replay
-  window, key rotation, CORS, ledger flow); add `--triggers` to prove the
-  storage-layer append-only triggers abort UPDATE/DELETE.
-- `node beta/run_beta.cjs` — 30-check headless-browser matrix of the web hub
-  (screenshots in `beta/screenshots/`).
-- `node beta/run_live_api.cjs` — 12-check browser ⇄ live-worker integration
-  (self-seeds a signed, VERIFIED record through the real ingest + ledger).
-- `cd web && npm test` — pure-helper unit asserts (formula mirrors, CSV parser).
-- `cd beta && node run_beta.cjs` after `cd web && python3 -m http.server 8080` and
-  `bash beta/serve_mirrors.sh` (or `node beta/mirror_server.cjs /tmp/gof-cesium 8081`).
-
 
 ```bash
-npm run dev                # starts wrangler dev on http://0.0.0.0:8787
-node scripts/smoke_test.mjs  # 15 end-to-end checks (all should pass ✔)
+npm run dev                   # starts wrangler dev on http://0.0.0.0:8787
+npm run db:schema:local       # apply schema.sql to the local D1
+node scripts/smoke_test.mjs   # 15 end-to-end checks (all should pass ✔)
 ```
 
 The smoke test generates a fresh EC P-256 key pair, mimics the Android Keystore signing
 scheme (DER signatures), and exercises registration, signed upload, replay rejection
 (409), tamper rejection (401), pagination, raw dump download, the moderation ledger, and
 stats. Use `npm run tail` to stream production logs.
+
+### Extended audit suites (this branch)
+
+- `node scripts/audit_backend.mjs` — 21 edge-case checks (validation, anti-replay
+  window, key rotation, CORS, ledger flow); add `--triggers` to prove the
+  storage-layer append-only triggers abort UPDATE/DELETE.
+- `node beta/run_beta.cjs` — 30-check headless-browser matrix of the web hub
+  (screenshots in `beta/screenshots/`; needs the hub on :8080 and the local
+  Cesium mirror: `node beta/mirror_server.cjs /tmp/gof-cesium 8081`).
+- `node beta/run_live_api.cjs` — 12-check browser ⇄ live-worker integration;
+  self-seeds a signed, VERIFIED record through the real ingest + ledger.
+- `cd web && npm test` — pure-helper unit asserts (formula mirrors, CSV parser).
 
 ## Roadmap
 

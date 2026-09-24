@@ -346,37 +346,33 @@ await step("dump: attachment disposition + immutable cache headers", async () =>
 
 if (runTriggers) {
   console.log("\n--- storage-layer append-only triggers (wrangler d1 --local) ---");
-  await step("UPDATE measurements \u2192 ABORT", async () => {
+  // BEFORE UPDATE/DELETE triggers fire only on matching rows, so the tests
+  // seed their own sentinel rows first — deterministic even on a virgin DB.
+  const d1 = (sql) => execSync(
+    `npx wrangler d1 execute globeorflat --local -y --command ${JSON.stringify(sql)}`,
+    { stdio: "pipe", cwd: process.cwd() },
+  ).toString();
+  const d1MustAbort = (sql, label) => {
     let aborted = false;
-    try {
-      execSync(
-        `npx wrangler d1 execute globeorflat --local -y --command "UPDATE measurements SET altitude_m = 0"`,
-        { stdio: "pipe", cwd: process.cwd() },
-      );
-    } catch (e) {
+    try { d1(sql); } catch (e) {
       aborted = true;
-      assertIncludes(String(e.stderr || e.message), "append-only", "abort reason");
+      assertIncludes(String(e.stderr || e.message), "append-only", `${label} abort reason`);
     }
-    assertEq(aborted, true, "expected abort");
+    assertEq(aborted, true, `${label}: expected abort`);
+  };
+
+  await step("seed sentinel rows (INSERT is legal)", async () => {
+    d1("INSERT OR IGNORE INTO device_keys (device_id, key_version, public_key_spki) VALUES ('append-only-sentinel', 999, 'c2VudGluZWw=')");
+    d1("INSERT OR IGNORE INTO measurements (id, user_device_id, mode, timestamp, gps_lat, gps_lon, altitude_m, raw_sensor_dump_r2_key, signature_hash) VALUES ('00000000-0000-4000-8000-0000000000aa', 'append-only-sentinel', 'HORIZON_DIP', 1700000000000, 0, 0, 0, 'sentinel/na.csv', 'sentinel-signature-hash')");
   });
-  await step("DELETE FROM verification_events \u2192 ABORT", async () => {
-    let aborted = false;
-    try {
-      execSync(
-        `npx wrangler d1 execute globeorflat --local -y --command "DELETE FROM verification_events"`,
-        { stdio: "pipe", cwd: process.cwd() },
-      );
-    } catch (e) {
-      aborted = true;
-      assertIncludes(String(e.stderr || e.message), "append-only", "abort reason");
-    }
-    assertEq(aborted, true, "expected abort");
+  await step("UPDATE device_keys \u2192 ABORT", async () => {
+    d1MustAbort("UPDATE device_keys SET public_key_spki = 'x' WHERE device_id = 'append-only-sentinel'", "UPDATE");
+  });
+  await step("DELETE measurements \u2192 ABORT", async () => {
+    d1MustAbort("DELETE FROM measurements WHERE user_device_id = 'append-only-sentinel'", "DELETE");
   });
   await step("INSERT still works (append-only permits writes)", async () => {
-    const out = execSync(
-      `npx wrangler d1 execute globeorflat --local -y --command "SELECT COUNT(*) AS n FROM measurements" --json`,
-      { stdio: "pipe", cwd: process.cwd() },
-    ).toString();
+    const out = d1("SELECT COUNT(*) AS n FROM measurements --json");
     assertIncludes(out, '"n"', "select result");
   });
 }
