@@ -150,6 +150,37 @@ The app funds its free open API through a crypto-focused monetization stack:
 Paste your zone keys / VAST tag into `lib/services/ad_config.dart` and flip
 `testMode = false` before shipping. Never commit real keys to public forks.
 
+## Results, Sharing & Reports
+
+- **Results screen** (`lib/screens/results_screen.dart`): side-by-side matrix —
+  **Measured Data** vs **Globe Model Expectation** vs **Flat Earth Model
+  Expectation** — a headline score ("99.4% Match with Spherical Earth Model"),
+  the verdict ladder, an integrity strip (SHA-256 + signature), and the
+  mid-screen Adsterra banner (non-camera screen).
+- **9:16 share card** (`lib/widgets/share_card_widget.dart`): CustomPainter
+  HUD card (1080×1920 @ pixelRatio 2) with the camera snapshot, route map /
+  deviation meter, pitch, distance and score — one tap "Share to Socials".
+- **PDF audit report** (`lib/services/pdf_report_service.dart`, gated by the
+  `Download PDF Audit Report` token): multi-page A4 report with the three-model
+  matrix, GPS coordinates, calibration status, up to 120 rows of raw sensor
+  telemetry tables, SHA-256 integrity chain, and the developer verification
+  stamp. Print/preview via `printing`, OS share sheet via `share_plus`.
+
+## Help, Safety & About
+
+- **Help & FAQ** — mode field guides (incl. horizon-dip without refraction
+  interference and water-sightline zoom best practices), sensor explanations
+  (barometer vs GPS vs accelerometer) and ten FAQs, rendered with
+  `flutter_markdown` on the shared HUD document scaffold.
+- **Safety & Legal (Disclaimer)** — outdoor-safety warnings (never operate
+  while driving; watch your surroundings near cliffs and water), the
+  scientific disclaimer on sensor tolerances and refraction variability, and
+  the data-permanence section. First launch is gated behind acceptance
+  (`gof_disclaimer_accepted_v1`).
+- **About** — developer credit (AndrexTheDev), contact e-mail, GitHub repo
+  button, and the embedded crypto donation modal. All three documents share
+  the cyberpunk HUD chrome in `lib/widgets/hud_document_scaffold.dart`.
+
 ## Notes
 
 * Signatures are produced by `SHA256withECDSA` (ASN.1 DER) — exactly what the

@@ -20,10 +20,15 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show PathEffect;
 
+import 'dart:convert' show utf8;
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../models/measurement_summary.dart';
 import '../../physics/earth_curvature.dart';
+import '../../screens/results_screen.dart';
+import '../../services/keystore_service.dart';
 import '../../services/measurement_pipeline.dart';
 import '../../services/sensor_fusion_service.dart';
 import '../../services/sync_manager.dart';
@@ -207,7 +212,7 @@ class _TrackDriveScreenState extends State<TrackDriveScreen> {
             '${p.gpsAltitudeM?.toStringAsFixed(2) ?? ''}');
       }
 
-      await MeasurementPipeline(widget.sync).enqueueAndSync(
+      final String uuid = await MeasurementPipeline(widget.sync).enqueueAndSync(
         mode: MeasurementMode.trackDrive,
         gpsLat: pos.latitude,
         gpsLon: pos.longitude,
@@ -218,12 +223,44 @@ class _TrackDriveScreenState extends State<TrackDriveScreen> {
       );
 
       if (mounted) {
+        setState(() => _recording = false);
+        final double totalKm = _distanceM / 1000.0;
+        final FusedSample? lastSample = _lastSample;
+        final MeasurementSummary summary = MeasurementSummary(
+          measurementId: uuid,
+          modeWire: 'TRACK_DRIVE',
+          capturedAtMs: result.endedAtMs,
+          // Net elevation change over the route, relative to the first sample.
+          measuredValue: _points.last.fusedAltitudeM - refAlt,
+          measuredUnit: 'm',
+          globeExpected: -curvatureDropMeters(totalKm),
+          flatExpected: 0,
+          expectationUnit: 'm',
+          deviationPercent: deviation,
+          latitude: pos.latitude,
+          longitude: pos.longitude,
+          altitudeM: refAlt,
+          distanceKm: totalKm,
+          durationS:
+              (result.endedAtMs - result.startedAtMs) / 1000.0,
+          pitchDeg: lastSample == null
+              ? null
+              : lastSample.pitch * 180.0 / math.pi,
+          rawCsv: csv.toString(),
+          rawCsvSha256: KeystoreService.sha256HexOfBytes(
+              utf8.encode(csv.toString())),
+        );
         setState(() {
-          _recording = false;
-          _resultMessage = 'Trip queued: ${(_distanceM / 1000).toStringAsFixed(2)} km, '
+          _resultMessage = 'Trip queued: ${totalKm.toStringAsFixed(2)} km, '
               '${_points.length} samples · rms flat ${flatRms.toStringAsFixed(2)} m '
               'vs globe ${globeRms.toStringAsFixed(2)} m';
         });
+        await Navigator.of(context).push(
+          MaterialPageRoute<Widget>(
+            builder: (BuildContext _) =>
+                ResultsScreen(summary: summary),
+          ),
+        );
       }
     } finally {
       if (mounted) {

@@ -24,6 +24,14 @@ dependencies:
   qr_flutter: ^4.1.0          # donation address QR codes
   xml: ^6.5.0                 # VAST tag parsing
 
+  # Docs, sharing & reports
+  flutter_markdown: ^0.7.7+1  # Help/Safety/About content (upstream discontinued
+                              #  — documented migration path to a community fork)
+  url_launcher: ^6.3.1        # mailto + GitHub links
+  share_plus: ^10.1.4         # share card PNG + PDF + CSV export
+  pdf: ^3.11.3                # PDF audit report generation
+  printing: ^5.13.4           # print/preview for the audit report
+
   # Storage & connectivity
   sqflite: ^2.3.3             # offline measurement queue
   path: ^2.1.4

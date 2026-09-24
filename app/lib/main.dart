@@ -11,7 +11,10 @@
 
 import 'package:flutter/material.dart';
 
+import 'screens/about_screen.dart';
 import 'screens/calibration_screen.dart';
+import 'screens/disclaimer_screen.dart';
+import 'screens/help_screen.dart';
 import 'screens/modes/eratosthenes_screen.dart';
 import 'screens/modes/horizon_dip_screen.dart';
 import 'screens/modes/track_drive_screen.dart';
@@ -80,6 +83,7 @@ class _BootGateState extends State<_BootGate> {
 
   CalibrationResult? _calibration;
   bool _loaded = false;
+  bool _disclaimerAccepted = true; // flipped after the async check
 
   @override
   void initState() {
@@ -88,10 +92,12 @@ class _BootGateState extends State<_BootGate> {
   }
 
   Future<void> _bootstrap() async {
+    final bool accepted = await isDisclaimerAccepted();
     final CalibrationStorage storage = CalibrationStorage();
     final CalibrationResult? stored = await storage.load();
     if (!mounted) return;
     setState(() {
+      _disclaimerAccepted = accepted;
       _calibration = stored;
       _loaded = true;
     });
@@ -111,6 +117,16 @@ class _BootGateState extends State<_BootGate> {
     if (!_loaded) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (!_disclaimerAccepted) {
+      // First-run hard gate: safety + data-permanence consent.
+      return DisclaimerScreen(
+        onAccepted: () {
+          if (mounted) {
+            setState(() => _disclaimerAccepted = true);
+          }
+        },
       );
     }
     final CalibrationResult? calibration = _calibration;
@@ -236,6 +252,59 @@ class _HomeDashboard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.tealAccent.shade200),
+                      foregroundColor: Colors.tealAccent.shade200,
+                    ),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<Widget>(
+                          builder: (BuildContext _) => const HelpScreen()),
+                    ),
+                    icon: const Icon(Icons.help_outline, size: 18),
+                    label: const Text('Help & FAQ',
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFFFB454)),
+                      foregroundColor: const Color(0xFFFFB454),
+                    ),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<Widget>(
+                          builder: (BuildContext _) =>
+                              const DisclaimerScreen()),
+                    ),
+                    icon: const Icon(Icons.gpp_maybe_outlined, size: 18),
+                    label: const Text('Safety & Legal',
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFE93EFF)),
+                      foregroundColor: const Color(0xFFE93EFF),
+                    ),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<Widget>(
+                          builder: (BuildContext _) => const AboutScreen()),
+                    ),
+                    icon: const Icon(Icons.person_pin_rounded, size: 18),
+                    label: const Text('About',
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

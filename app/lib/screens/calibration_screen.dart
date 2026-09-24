@@ -769,7 +769,7 @@ class _CalibrationPainter extends CustomPainter {
           style: TextStyle(color: Colors.white24, fontSize: 12)),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy + 110 * scale));
+    tp.paint(canvas, Offset(center.dx - (tp.width ?? 0) / 2, center.dy + 110 * scale));
   }
 
   /// Bubble level: outer rings + live bubble offset by (roll, pitch).

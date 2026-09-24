@@ -425,7 +425,7 @@ class _HorizonDipHudPainter extends CustomPainter {
       );
       labelTp.layout();
       labelTp.paint(
-          canvas, Offset(x - labelTp.width - 8, (yHorizon0 + yGlobe) / 2 - 7));
+          canvas, Offset(x - (labelTp.width ?? 0) - 8, (yHorizon0 + yGlobe) / 2 - 7));
     }
 
     // Crosshair (aim the center at the visible horizon).
@@ -450,7 +450,7 @@ class _HorizonDipHudPainter extends CustomPainter {
         style: TextStyle(color: Colors.orangeAccent, fontSize: 13),
       );
       labelTp.layout();
-      labelTp.paint(canvas, Offset(size.width / 2 - labelTp.width / 2, 70));
+      labelTp.paint(canvas, Offset(size.width / 2 - (labelTp.width ?? 0) / 2, 70));
     }
   }
 
