@@ -44,10 +44,14 @@
     <uses-feature android:name="android.hardware.sensor.compass" android:required="true" />
     <uses-feature android:name="android.hardware.location.gps" android:required="true" />
 
+    <!-- allowBackup=false: the device identity key pair and the offline
+         measurement queue must never leak into cloud backups or
+         device-to-device transfers. -->
     <application
         android:label="GlobeOrFlat"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"

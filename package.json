@@ -34,7 +34,8 @@
     "db:schema:remote": "wrangler d1 execute globeorflat --remote --file=./schema.sql -y",
     "db:ping": "wrangler d1 execute globeorflat --local --command \"SELECT 'pong' AS ping\"",
     "smoke:test": "node scripts/smoke_test.mjs",
-    "tail": "wrangler tail"
+    "tail": "wrangler tail",
+    "check:security": "node scripts/security_audit.mjs"
   },
   "dependencies": {
     "hono": "^4.9.0",

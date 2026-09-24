@@ -91,8 +91,12 @@ class _AdsterraBannerState extends State<AdsterraBanner> {
               final String host = uri.host.toLowerCase();
               final String invokeHost =
                   AdConfig.adsterraInvokeHost.toLowerCase();
-              final bool sameHost =
-                  host.isEmpty || host.endsWith(invokeHost);
+              // Exact-host match with a proper dot boundary: "evil.www.<host>"
+              // must NOT pass an endsWith("<host>") check. Empty host covers
+              // about:blank / data: URLs from loadHtmlString itself.
+              final bool sameHost = host.isEmpty ||
+                  host == invokeHost ||
+                  host.endsWith(".$invokeHost");
               return sameHost
                   ? NavigationDecision.navigate
                   : NavigationDecision.prevent;

@@ -63,6 +63,8 @@ export type Env = {
   ADMIN_TOKEN: string;
 
   MAX_SENSOR_DUMP_BYTES?: string;
+  /** JSON metadata part limit (the signed `payload` part). */
+  MAX_PAYLOAD_BYTES?: string;
   PRESIGN_TTL_SECONDS?: string;
   SIGNATURE_MAX_SKEW_MS?: string;
   AUTO_VERIFY_SIGNED_UPLOADS?: string;
@@ -76,6 +78,7 @@ const UPLOAD_PATH = `${API_PREFIX}/measurements/upload`;
 const REGISTER_PATH = `${API_PREFIX}/devices/register`;
 
 const DEFAULT_MAX_DUMP_BYTES = 5 * 1024 * 1024; // 5 MiB
+const DEFAULT_MAX_PAYLOAD_BYTES = 64 * 1024; // 64 KiB — metadata is tiny
 const DEFAULT_PRESIGN_TTL = 3600; // seconds
 const DEFAULT_SIGNATURE_SKEW_MS = 300_000; // ±5 min
 const EPOCH_FLOOR_MS = 1577836800000; // 2020-01-01 — reject obviously bogus clocks
@@ -321,6 +324,13 @@ app.post(UPLOAD_PATH, async (c) => {
   }
 
   const payloadText = typeof payloadPart === "string" ? payloadPart : await payloadPart.text();
+  // Byte-exact size guard on the (signed) metadata part — a multi-megabyte
+  // JSON blob would burn hash/verify CPU before any validation runs.
+  const maxPayloadBytes = numberVar(c.env.MAX_PAYLOAD_BYTES, DEFAULT_MAX_PAYLOAD_BYTES);
+  const payloadBytes = new TextEncoder().encode(payloadText).byteLength;
+  if (payloadBytes > maxPayloadBytes) {
+    return jsonError(c, 413, "payload_too_large", `The 'payload' part exceeds the ${maxPayloadBytes}-byte limit.`);
+  }
   const dump = dumpPart as File;
 
   let payloadJson: unknown;

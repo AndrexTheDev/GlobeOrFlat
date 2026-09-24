@@ -15,6 +15,7 @@
  */
 
 const fs = require("fs");
+const crypto = require("crypto");
 const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -109,6 +110,23 @@ if (fs.existsSync(headersPath)) {
   const raw = fs.readFileSync(headersPath, "utf8");
   check("_headers sets CSP", /content-security-policy:/i.test(raw));
   check("_headers sets nosniff", /x-content-type-options/i.test(raw));
+
+  // --- 3b) CSP script-hash consistency (index.html <-> _headers) --------------
+  const cspLine = raw.split("\n").find((l) => /content-security-policy:/i.test(l)) || "";
+  const listedHashes = [...cspLine.matchAll(/'sha256-([0-9a-f]{64})'/gi)].map((m) => m[1].toLowerCase());
+  const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  const inlineBodies = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  const inlineHashes = inlineBodies.map((b) =>
+    crypto.createHash("sha256").update(Buffer.from(b, "utf8")).digest("hex"),
+  );
+  check("CSP script-src drops unsafe-inline", !/script-src[^;]*'unsafe-inline'/i.test(cspLine));
+  check("CSP has no unsafe-eval", !/'unsafe-eval'/i.test(cspLine));
+  for (const h of inlineHashes) {
+    check(`CSP pins inline script sha256:${h.slice(0, 12)}\u2026`, listedHashes.includes(h));
+  }
+  for (const h of listedHashes) {
+    check(`CSP hash sha256:${h.slice(0, 12)}\u2026 matches an inline script`, inlineHashes.includes(h));
+  }
 }
 
 // --- 4) .assetsignore coverage -----------------------------------------------

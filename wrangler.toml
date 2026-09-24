@@ -45,6 +45,7 @@ bucket_name = "globeorflat-raw-sensor-dumps"
 # ----------------------------------------------------------------------------
 [vars]
 MAX_SENSOR_DUMP_BYTES = "5242880"     # 5 MiB max raw sensor dump per upload
+MAX_PAYLOAD_BYTES = "65536"           # 64 KiB max signed JSON metadata part
 PRESIGN_TTL_SECONDS = "3600"          # lifetime of presigned R2 download links
 SIGNATURE_MAX_SKEW_MS = "300000"      # +/- 5 min anti-replay clock skew window
 AUTO_VERIFY_SIGNED_UPLOADS = "false"  # if "true", signature-valid uploads enter the public feed immediately (moderators can still append REJECTED events)

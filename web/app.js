@@ -40,10 +40,31 @@ const GOF_CONFIG = {
 (function loadConfig() {
   if (typeof window === "undefined" || typeof localStorage === "undefined") return;
   try {
-    GOF_CONFIG.apiBase =
-      new URLSearchParams(window.location.search).get("api") ||
-      localStorage.getItem("gof_api_base") ||
-      "";
+    const param = new URLSearchParams(window.location.search).get("api");
+    if (param !== null && param.trim() !== "") {
+      try {
+        GOF_CONFIG.apiBase = normalizeApiBase(param);
+        GOF_CONFIG.apiOverride = "url";
+      } catch (err) {
+        // Unsafe ?api= value (script scheme, plain http off-host, credentials):
+        // reject loudly, surface via toast in boot(), fall back to saved config.
+        GOF_CONFIG.apiOverride = "rejected";
+        GOF_CONFIG.apiOverrideReason = err.message;
+        console.warn(`[security] rejected ?api= override: ${err.message}`);
+      }
+    }
+    if (GOF_CONFIG.apiBase === "") {
+      const stored = localStorage.getItem("gof_api_base") || "";
+      if (stored !== "") {
+        try {
+          GOF_CONFIG.apiBase = normalizeApiBase(stored);
+          if (GOF_CONFIG.apiBase !== stored) localStorage.setItem("gof_api_base", GOF_CONFIG.apiBase);
+        } catch (err) {
+          console.warn(`[security] ignoring stored api base: ${err.message}`);
+          localStorage.removeItem("gof_api_base");
+        }
+      }
+    }
     GOF_CONFIG.ionToken = localStorage.getItem("gof_ion_token") || "";
   } catch (e) {
     /* private mode — defaults are fine */
@@ -516,6 +537,21 @@ function setConnection(kind) {
     text.textContent = "API OFFLINE";
     dot.classList.add("offline");
   }
+  // Make a non-default endpoint impossible to miss (anti ?api=/settings confusion).
+  if (GOF_CONFIG.apiBase !== "") {
+    const host = safeHostname(GOF_CONFIG.apiBase);
+    text.textContent = `${text.textContent} · CUSTOM`;
+    chip.title = `Custom API endpoint: ${host || GOF_CONFIG.apiBase} — click to configure`;
+  }
+}
+
+/** Hostname of an apiBase string ("" when unparsable) — display only. */
+function safeHostname(base) {
+  try {
+    return new URL(base).hostname;
+  } catch (e) {
+    return "";
+  }
 }
 
 function renderStats(total, verified, devices, modes) {
@@ -550,10 +586,10 @@ function renderTable() {
     tr.dataset.id = rec.id;
     tr.innerHTML = `
       <td class="font-data text-gof-ink">${escapeHtml(rec.device_id)}</td>
-      <td><span class="hud-chip mode-chip mode-${rec.mode}">${MODE_META[rec.mode] ? MODE_META[rec.mode].glyph + " " + MODE_META[rec.mode].label : rec.mode}</span></td>
+      <td><span class="hud-chip mode-chip mode-${safeClass(rec.mode)}">${MODE_META[rec.mode] ? MODE_META[rec.mode].glyph + " " + MODE_META[rec.mode].label : escapeHtml(rec.mode)}</span></td>
       <td class="font-data">${fmtNum(rec.altitude_m, 1)}</td>
       <td class="font-data" style="color:${v.color}">${rec.curvature_deviation_percentage === null ? "—" : fmtNum(rec.curvature_deviation_percentage, 2) + " %"}</td>
-      <td><span class="hud-chip badge-${rec.verification_status}">${rec.verification_status}</span></td>
+      <td><span class="hud-chip badge-${safeClass(rec.verification_status)}">${escapeHtml(rec.verification_status)}</span></td>
       <td class="font-data text-slate-400 whitespace-nowrap">${fmtDate(rec.timestamp_iso).slice(0, 16)}</td>`;
     tr.addEventListener("click", () => openDrawer(rec.id));
     tbody.appendChild(tr);
@@ -572,6 +608,69 @@ function renderPagination() {
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// ===========================================================================
+// 4b · SECURITY HELPERS (defense in depth — node-testable)
+// ===========================================================================
+
+/**
+ * Sanitizes a fragment interpolated into a CSS class name
+ * (e.g. `mode-${...}`, `badge-${...}`), so an API-supplied enum can never
+ * break out of the class attribute or smuggle whitespace/attributes.
+ */
+function safeClass(s) {
+  return String(s ?? "").replace(/[^A-Za-z0-9_-]/g, "");
+}
+
+/**
+ * Whitelists anything assigned to an href — blocks javascript:/data:/
+ * vbscript: navigation even if a compromised or custom API returns
+ * malicious link fields. Relative and blob: URLs remain usable.
+ */
+function safeUrl(u) {
+  const s = String(u ?? "");
+  const base = typeof window !== "undefined" && window.location ? window.location.href : "https://hub.invalid/";
+  try {
+    const parsed = new URL(s, base);
+    if (parsed.protocol === "javascript:" || parsed.protocol === "data:" || parsed.protocol === "vbscript:") {
+      return "#";
+    }
+    return parsed.href;
+  } catch (e) {
+    return "#";
+  }
+}
+
+/**
+ * Validates a custom API endpoint (?api= URL param and the settings field).
+ * Rules: absolute URL, no embedded credentials, HTTPS only — except plain
+ * http for local development hosts (localhost / 127.0.0.1 / ::1 / *.localhost).
+ * Returns the trimmed base without trailing slashes; "" is allowed (same origin).
+ * Throws TypeError with a human-readable reason on rejection.
+ */
+function normalizeApiBase(candidate) {
+  const raw = String(candidate ?? "").trim();
+  if (raw === "") return "";
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (e) {
+    throw new TypeError("not an absolute URL");
+  }
+  if (parsed.username || parsed.password) {
+    throw new TypeError("credentials in the URL are not allowed");
+  }
+  if (parsed.protocol === "https:") {
+    // ok — the only scheme allowed for remote endpoints
+  } else if (parsed.protocol === "http:") {
+    const h = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    const isLocal = h === "localhost" || h === "127.0.0.1" || h === "::1" || h.endsWith(".localhost");
+    if (!isLocal) throw new TypeError("insecure http:// is only allowed for localhost endpoints");
+  } else {
+    throw new TypeError(`unsupported scheme ${parsed.protocol} — use https://`);
+  }
+  return raw.replace(/\/+$/, "");
 }
 
 // ===========================================================================
@@ -762,9 +861,9 @@ function plotFlatPoints() {
       fillOpacity: 0.85,
     });
     m.bindPopup(
-      `<b style="color:${color}">${rec.verification_status}</b> · ${rec.mode}<br>` +
+      `<b style="color:${color}">${escapeHtml(rec.verification_status)}</b> · ${escapeHtml(rec.mode)}<br>` +
       `dev ${rec.curvature_deviation_percentage === null ? "—" : rec.curvature_deviation_percentage.toFixed(2) + " %"}<br>` +
-      `<span style="color:#9be8ff">${shortId(rec.id)}…</span><br><i>click for record inspector</i>`,
+      `<span style="color:#9be8ff">${escapeHtml(shortId(rec.id))}…</span><br><i>click for record inspector</i>`,
     );
     m.on("click", () => openDrawer(rec.id));
     state.flatMarkerLayer.addLayer(m);
@@ -1027,25 +1126,25 @@ async function openDrawer(id) {
 
   document.getElementById("drawerTitle").textContent = `MEASUREMENT ${shortId(rec.id)}…`;
   const modeChip = document.getElementById("drawerMode");
-  modeChip.className = `hud-chip mode-chip mode-${rec.mode}`;
+  modeChip.className = `hud-chip mode-chip mode-${safeClass(rec.mode)}`;
   modeChip.textContent = `${MODE_META[rec.mode] ? MODE_META[rec.mode].glyph + " " : ""}${rec.mode}`;
   document.getElementById("drawerSub").textContent =
     `${rec.device_id} · captured ${fmtDate(rec.timestamp_iso)} · ingest ${fmtDate(rec.created_at)}`;
 
   const badge = document.getElementById("drawerBadge");
-  badge.className = `hud-chip badge-${rec.verification_status}`;
+  badge.className = `hud-chip badge-${safeClass(rec.verification_status)}`;
   badge.textContent = rec.verification_status;
 
   document.getElementById("drawerKv").innerHTML = `
     <div><div class="k">position</div><div class="v">${fmtNum(rec.gps_lat, 4)}°, ${fmtNum(rec.gps_lon, 4)}°</div></div>
     <div><div class="k">altitude</div><div class="v">${fmtNum(rec.altitude_m, 1)} m</div></div>
     <div><div class="k">deviation</div><div class="v" style="color:${v.color}">${rec.curvature_deviation_percentage === null ? "—" : fmtNum(rec.curvature_deviation_percentage, 2) + " %"}</div></div>
-    <div><div class="k">mode</div><div class="v">${rec.mode}</div></div>`;
+    <div><div class="k">mode</div><div class="v">${escapeHtml(rec.mode)}</div></div>`;
 
   document.getElementById("drawerIntegrity").innerHTML = `
-    <div><div class="k">record id</div><div class="v" title="${rec.id}">${rec.id}</div></div>
-    <div><div class="k">raw sha-256</div><div class="v" title="verify against /dump bytes">${rec.raw_dump_sha256 || "—"}</div></div>
-    <div><div class="k">signature (sha-256)</div><div class="v">${shortId(rec.signature_hash)}… (ECDSA P-256)</div></div>`;
+    <div><div class="k">record id</div><div class="v" title="${escapeHtml(rec.id)}">${escapeHtml(rec.id)}</div></div>
+    <div><div class="k">raw sha-256</div><div class="v" title="verify against /dump bytes">${escapeHtml(rec.raw_dump_sha256) || "—"}</div></div>
+    <div><div class="k">signature (sha-256)</div><div class="v">${escapeHtml(shortId(rec.signature_hash))}… (ECDSA P-256)</div></div>`;
 
   document.getElementById("drawerHeadline").textContent = v.headline || v.label;
   document.getElementById("drawerHeadline").style.color = v.color;
@@ -1053,13 +1152,14 @@ async function openDrawer(id) {
     ? "No deviation score on this record — the paired-site or solar-geometry result is still open."
     : `Verdict ${v.label} · match score = 100 − |deviation| against the spherical expectation. Uncertainty lives in the raw dump, not in this number.`;
 
-  // links / actions
-  const dumpUrl = rec.demo_raw_csv !== null ? "#demo" : rec.links.raw_dump || apiUrl(`/api/v1/measurements/${rec.id}/dump`);
+  // links / actions — safeUrl blocks javascript:/data: even if a custom API
+  // serves malicious link fields
+  const dumpUrl = rec.demo_raw_csv !== null ? "#demo" : safeUrl(rec.links.raw_dump || apiUrl(`/api/v1/measurements/${rec.id}/dump`));
   const csvBtn = document.getElementById("btnDownloadCsv");
   csvBtn.dataset.mode = rec.demo_raw_csv !== null ? "demo" : "live";
   csvBtn.href = dumpUrl;
   document.getElementById("btnApiJson").href =
-    rec.demo_raw_csv !== null ? GITHUB_REPO : apiUrl(`/api/v1/measurements/${rec.id}`);
+    rec.demo_raw_csv !== null ? GITHUB_REPO : safeUrl(apiUrl(`/api/v1/measurements/${rec.id}`));
   document.getElementById("btnCopySha").onclick = () => {
     navigator.clipboard.writeText(rec.raw_dump_sha256 || rec.signature_hash || "").then(() => toast("SHA-256 copied"));
   };
@@ -1604,7 +1704,13 @@ function wireUi() {
   document.getElementById("openSettingsFromBanner").addEventListener("click", openSettings);
   modal.querySelectorAll("[data-close-settings]").forEach((el) => el.addEventListener("click", closeSettings));
   document.getElementById("settingsSave").addEventListener("click", () => {
-    GOF_CONFIG.apiBase = document.getElementById("apiBaseInput").value.trim();
+    const candidate = document.getElementById("apiBaseInput").value.trim();
+    try {
+      GOF_CONFIG.apiBase = normalizeApiBase(candidate); // throws on unsafe values
+    } catch (err) {
+      toast(`Rejected: ${err.message}`);
+      return; // keep the modal open so the user can correct the value
+    }
     GOF_CONFIG.ionToken = document.getElementById("ionTokenInput").value.trim();
     try {
       localStorage.setItem("gof_api_base", GOF_CONFIG.apiBase);
@@ -1637,6 +1743,12 @@ async function boot() {
   state.graticule = precomputeGraticule();
   initFlatMap();
   setConnection("CONNECTING");
+  // ?api= override feedback — the feed's origin must never change silently.
+  if (GOF_CONFIG.apiOverride === "url") {
+    toast(`Custom API active: ${safeHostname(GOF_CONFIG.apiBase) || GOF_CONFIG.apiBase}`);
+  } else if (GOF_CONFIG.apiOverride === "rejected") {
+    toast(`Unsafe ?api= rejected (${GOF_CONFIG.apiOverrideReason || "invalid"}) — using saved endpoint`);
+  }
   await refresh();
   setProjection("3d"); // boots Cesium lazily (2D engine is already live beneath)
   // test/beta hook (read-only introspection)
@@ -1669,5 +1781,9 @@ if (typeof module !== "undefined" && module.exports) {
     aeqdProject,
     aeqdUnproject,
     R_EFFECTIVE_M,
+    escapeHtml,
+    safeClass,
+    safeUrl,
+    normalizeApiBase,
   };
 }

@@ -131,4 +131,54 @@ for (const r of demo) {
 const dipAnn = A.parseDump(demo[0].demo_raw_csv).annotations;
 assert.ok(Math.abs(Number(dipAnn.predicted_arcmin) - 10.6) < 0.001);
 
+// --- security helpers (defense in depth) --------------------------------------
+
+// escapeHtml — full breakout coverage
+assert.strictEqual(A.escapeHtml(`<img src=x onerror="alert(1)">`), "&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
+assert.strictEqual(A.escapeHtml(`O'Brien & Co`), "O&#39;Brien &amp; Co");
+assert.strictEqual(A.escapeHtml(42), "42");
+
+// safeClass — enum fragments can never carry attribute syntax or whitespace
+assert.strictEqual(A.safeClass("HORIZON_DIP"), "HORIZON_DIP");
+assert.strictEqual(A.safeClass(`VERIFIED"><script>alert(1)</script>`), "VERIFIEDscriptalert1script");
+assert.strictEqual(A.safeClass("a b c"), "abc");
+assert.strictEqual(A.safeClass(null), "");
+assert.strictEqual(A.safeClass(undefined), "");
+
+// safeUrl — javascript:/data:/vbscript: never become clickable hrefs
+assert.strictEqual(A.safeUrl("javascript:alert(1)"), "#");
+assert.strictEqual(A.safeUrl(`JaVaScRiPt:alert(1)`), "#");
+assert.strictEqual(A.safeUrl("data:text/html,<h1>evil</h1>"), "#");
+assert.strictEqual(A.safeUrl("vbscript:msgbox(1)"), "#");
+assert.strictEqual(A.safeUrl("javascript:/*-/*`/*\\`/*'/*\"/**/(alert(1))"), "#");
+assert.ok(A.safeUrl("https://example.com/x").startsWith("https://example.com/x"));
+assert.ok(A.safeUrl("blob:https://hub.example/abc").startsWith("blob:"));
+assert.ok(A.safeUrl("/api/v1/measurements").includes("/api/v1/measurements")); // relative resolves
+// empty/null fall back to the current page (never a script scheme)
+for (const empty of ["", null, undefined]) {
+  assert.ok(!/^(javascript|data|vbscript):/i.test(A.safeUrl(empty)), `safeUrl(${String(empty)}) must be scheme-safe`);
+}
+
+// normalizeApiBase — ?api= and settings endpoint validation
+assert.strictEqual(A.normalizeApiBase(""), ""); // same origin by default
+assert.strictEqual(A.normalizeApiBase("   "), "");
+assert.strictEqual(A.normalizeApiBase("https://gof-api.example.com/"), "https://gof-api.example.com");
+assert.strictEqual(A.normalizeApiBase("https://gof-api.example.com///"), "https://gof-api.example.com");
+assert.strictEqual(A.normalizeApiBase("http://localhost:8787"), "http://localhost:8787"); // dev only
+assert.strictEqual(A.normalizeApiBase("http://127.0.0.1:8787/"), "http://127.0.0.1:8787");
+assert.strictEqual(A.normalizeApiBase("http://api.localhost"), "http://api.localhost");
+for (const [bad, why] of [
+  ["http://gof-api.example.com", "plain http off-host"],
+  ["ftp://gof-api.example.com", "non-http scheme"],
+  ["javascript:alert(1)", "script scheme"],
+  ["data:text/plain,hi", "data scheme"],
+  ["https://user:pass@gof-api.example.com", "embedded credentials"],
+  ["gof-api.example.com", "missing scheme"],
+  ["not a url at all", "garbage"],
+]) {
+  let threw = null;
+  try { A.normalizeApiBase(bad); } catch (e) { threw = e; }
+  assert.ok(threw instanceof TypeError, `normalizeApiBase(${JSON.stringify(bad)}) must throw (${why})`);
+}
+
 console.log("ALL WEB HELPER TESTS PASSED");
