@@ -1,0 +1,86 @@
+# ============================================================================
+# GlobeOrFlat — Cloudflare Pages CI for the Open Science Hub (web/)
+# SPDX-License-Identifier: MIT
+#
+#   • check: web unit tests + Pages readiness audit (references, _headers,
+#     secrets, size) on every push/PR touching web/
+#   • deploy: on main → `wrangler pages deploy web` into the
+#     `globeorflat-hub` Pages project — but ONLY when the repository
+#     secrets are configured (Settings → Secrets and variables → Actions):
+#         CLOUDFLARE_API_TOKEN   (Permissions: Cloudflare Pages: Edit)
+#         CLOUDFLARE_ACCOUNT_ID
+#     Without them the job skips with a notice, CI stays green.
+#
+# Alternative (no secrets at all): connect the repo once in the Cloudflare
+#   Pages dashboard (Git integration, build command: none, output dir: web).
+#   Both paths produce the same site; pick one, not both, for `main`.
+# Same-origin option (hub served BY the API worker): [assets] block in
+#   wrangler.toml — see web/README.md. Independent of this workflow.
+# ============================================================================
+
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "web/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: web checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: unit tests (formula mirrors, CSV parser)
+        run: node test/helpers.test.js
+
+      - name: Pages readiness audit
+        run: node test/pages_readiness.js
+
+  deploy:
+    name: deploy to Cloudflare Pages
+    needs: check
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Pages secrets
+        id: cfg
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set — Pages deploy skipped. Add them under Settings → Secrets and variables → Actions (token needs Cloudflare Pages: Edit)."
+          fi
+
+      - name: Deploy web/ to globeorflat-hub
+        if: steps.cfg.outputs.configured == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy web --project-name=globeorflat-hub --branch=main --commit-dirty=true

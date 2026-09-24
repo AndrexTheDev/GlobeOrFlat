@@ -10,7 +10,8 @@
     "start": "python3 -m http.server 8080 --bind 0.0.0.0",
     "test": "node test/helpers.test.js",
     "deploy": "npx wrangler@latest pages deploy . --project-name globeorflat-hub",
-    "deploy:print": "npx wrangler@latest pages project list"
+    "deploy:print": "npx wrangler@latest pages project list",
+    "check:pages": "node test/pages_readiness.js"
   },
   "repository": {
     "type": "git",

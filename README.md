@@ -384,6 +384,8 @@ stats. Use `npm run tail` to stream production logs.
 - `node beta/run_live_api.cjs` — 12-check browser ⇄ live-worker integration;
   self-seeds a signed, VERIFIED record through the real ingest + ledger.
 - `cd web && npm test` — pure-helper unit asserts (formula mirrors, CSV parser).
+- `cd web && npm run check:pages` — Cloudflare Pages readiness audit
+  (references, `_headers`, `.assetsignore`, secrets scan, upload size).
 
 ## Roadmap
 

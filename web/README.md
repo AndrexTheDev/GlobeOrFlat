@@ -78,12 +78,31 @@ guarded. In normal browsers the full Cesium globe boots as usual.
 
 ## Deploy
 
-### Option A — static host (GitHub Pages, Netlify, R2 …)
+### Option A — GitHub Actions (recommended, zero-touch after setup)
+
+`.github/workflows/pages.yml` runs the unit tests + the Pages-readiness audit
+on every push touching `web/` and deploys `main` to the **`globeorflat-hub`**
+Pages project via `wrangler pages deploy`. One-time setup in the GitHub repo:
+
+    Settings → Secrets and variables → Actions → New repository secret
+      CLOUDFLARE_API_TOKEN   (API token with "Cloudflare Pages: Edit")
+      CLOUDFLARE_ACCOUNT_ID
+
+Without the secrets the deploy step **skips with a notice** (CI stays green).
+Manual fallback from anywhere: `cd web && npm run deploy` (uses your local
+wrangler login).
+
+### Option B — Cloudflare Pages Git integration (no secrets in GitHub)
+
+Dashboard → Workers & Pages → Create → Pages → Connect to Git:
+build command `none`, output directory `web`. Cloudflare checks out, hosts.
+
+### Option C — any static host (GitHub Pages, Netlify, R2 …)
 
 Upload the `web/` directory as-is and set the API endpoint via `?api=` or
 the settings dialog.
 
-### Option B — same origin as the API (recommended)
+### Option D — same origin as the API
 
 Cloudflare Workers can serve static assets next to the worker script. Add to
 `wrangler.toml`:
