@@ -1,0 +1,152 @@
+[
+  {
+    "name": "feed rendered (9 VERIFIED capsule records)",
+    "ok": true,
+    "detail": "9 rows"
+  },
+  {
+    "name": "offline-capsule banner shown",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "connection chip = OFFLINE CAPSULE",
+    "ok": true,
+    "detail": "OFFLINE CAPSULE"
+  },
+  {
+    "name": "stats computed",
+    "ok": true,
+    "detail": "{\"total\":\"14\",\"verified\":\"9\",\"devices\":\"12\",\"modes\":\"4/4\"}"
+  },
+  {
+    "name": "tailwind v4 runtime applied",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "Orbitron font loaded",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "worker-thread gate detects broken 3D env",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "auto-switched to 2D projection",
+    "ok": true,
+    "detail": "projection=2d"
+  },
+  {
+    "name": "boot overlay dismissed",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "terrain chip shows degraded mode",
+    "ok": true,
+    "detail": "TERRAIN: UNAVAILABLE"
+  },
+  {
+    "name": "3D toggle blocked-mode guard",
+    "ok": true,
+    "detail": "projection=2d"
+  },
+  {
+    "name": "toggle button state consistent",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "AEQD canvas tiles rendered",
+    "ok": true,
+    "detail": "4 tiles"
+  },
+  {
+    "name": "coastlines/graticule painted",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "2D markers plotted",
+    "ok": true,
+    "detail": "9 markers"
+  },
+  {
+    "name": "sensor-session record clicked",
+    "ok": true,
+    "detail": "\n      gof-mad-01c4\n      ◐ HORIZON DIP\n      12.0\n      1.0"
+  },
+  {
+    "name": "telemetry charts drawn (fused/gps/pitch/pressure)",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "match headline rendered",
+    "ok": true,
+    "detail": "99.0% Match with Spherical Earth Model"
+  },
+  {
+    "name": "verification badge",
+    "ok": true,
+    "detail": "VERIFIED"
+  },
+  {
+    "name": "9:16 share card painted",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "integrity strip (sha-256 present)",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "GPS trajectory detected in dump",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "trajectory plotted on flat plane",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "mode filter narrows feed (VERIFIED∩HORIZON_DIP)",
+    "ok": true,
+    "detail": "4 rows"
+  },
+  {
+    "name": "status filter narrows feed",
+    "ok": true,
+    "detail": "3 rows"
+  },
+  {
+    "name": "settings modal opens",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "CSV raw dump download fires",
+    "ok": true,
+    "detail": "browser download completed"
+  },
+  {
+    "name": "zero unexpected console errors",
+    "ok": true,
+    "detail": "(expected /api/v1 fallback 404 whitelisted) "
+  },
+  {
+    "name": "zero page errors",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "zero failed requests",
+    "ok": true,
+    "detail": ""
+  }
+]

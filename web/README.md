@@ -1,8 +1,9 @@
 # GlobeOrFlat — Open Science Hub (web portal)
 
-Zero-build public SPA over the append-only Cloudflare D1 API. Three files,
-no bundler, no runtime npm dependencies — Leaflet and Cesium load from CDNs
-in the browser.
+Zero-build public SPA over the append-only Cloudflare D1 API. No bundler,
+no runtime npm dependencies: **Tailwind v4 (browser build), Leaflet and the
+HUD fonts are vendored** under `assets/vendor/` — only Cesium (~1 MB gzip
+loader + workers) streams from the pinned jsDelivr CDN.
 
 ```
 web/
@@ -50,6 +51,30 @@ Optional: set a **Cesium Ion token** in the same dialog
 (`localStorage.gof_ion_token`, never committed) to stream real
 digital-elevation world terrain. Without it the 3D view uses the smooth
 ellipsoid + OpenStreetMap imagery.
+
+## Beta harness (headless browser matrix)
+
+`../beta/run_beta.cjs` boots the real portal in headless Chromium (SwiftShader
+WebGL), walks the entire UI — capsule boot, projection toggle & worker-gate
+degradation, AEQD tile rendering, record drawer (share card + telemetry
+charts), GPS trajectory, filters, settings, mobile viewport, CSV download —
+and fails on any console/page error. Requires the API host to 404 (offline
+capsule mode) and optionally the local Cesium mirror (`serve_mirrors.sh`).
+Screenshots land in `../beta/screenshots/`, per-check results in
+`../beta/beta_summary.json`.
+
+```bash
+node ../beta/run_beta.cjs     # 30 checks
+npm test                      # pure-helper unit asserts
+```
+
+## 3D engine degradation (worker gate)
+
+Cesium builds globe geometry in web workers. On hosts where worker threads
+are unavailable (hardened kiosk browsers, some sandboxes), a plain Cesium
+boot shows a dead black sphere — so the hub probes worker support first and
+**degrades to the 2D engine** with an explanatory toast; the 3D toggle stays
+guarded. In normal browsers the full Cesium globe boots as usual.
 
 ## Deploy
 

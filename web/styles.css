@@ -47,6 +47,32 @@ body::after {
   mix-blend-mode: overlay;
 }
 
+@font-face {
+  font-family: "Orbitron";
+  src: url("assets/vendor/fonts/orbitron-latin-500-normal.woff2") format("woff2");
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Orbitron";
+  src: url("assets/vendor/fonts/orbitron-latin-700-normal.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Orbitron";
+  src: url("assets/vendor/fonts/orbitron-latin-900-normal.woff2") format("woff2");
+  font-weight: 800 900; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("assets/vendor/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("assets/vendor/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 600 800; font-style: normal; font-display: swap;
+}
+
 .font-hud { font-family: Orbitron, "JetBrains Mono", ui-monospace, monospace; }
 .font-data { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace; }
 

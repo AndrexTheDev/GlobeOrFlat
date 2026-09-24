@@ -1,0 +1,7 @@
+# Files kept out of the Cloudflare Pages upload (site = index.html, app.js,
+# styles.css, assets/, _headers).
+README.md
+package.json
+test
+node_modules
+screenshots

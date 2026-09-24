@@ -24,36 +24,34 @@
 
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%2318e0ff' stroke-width='2'/%3E%3Cpath d='M3 16h26M16 3c6 7 6 19 0 26M16 3c-6 7-6 19 0 26' fill='none' stroke='%2318e0ff' stroke-width='1.4'/%3E%3C/svg%3E" />
 
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
-
-  <!-- Tailwind (Play CDN — swap for a compiled build in production) -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            gof: {
-              bg: "#0b1320", panel: "#102a43", deep: "#05080f",
-              cyan: "#18e0ff", green: "#4cff87", magenta: "#e93eff",
-              amber: "#ffb454", purple: "#9d7bff", ink: "#9be8ff",
-            },
-          },
-        },
-      },
-    };
-  </script>
+  <!-- Fonts: self-hosted (assets/vendor/fonts, see styles.css @font-face) -->
+  <!-- Tailwind v4 browser build, self-hosted — theme colors via @theme -->
+  <script src="assets/vendor/tailwind.browser.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-gof-bg: #0b1320;
+      --color-gof-panel: #102a43;
+      --color-gof-deep: #05080f;
+      --color-gof-cyan: #18e0ff;
+      --color-gof-green: #4cff87;
+      --color-gof-magenta: #e93eff;
+      --color-gof-amber: #ffb454;
+      --color-gof-purple: #9d7bff;
+      --color-gof-ink: #9be8ff;
+      --font-orbitron: "Orbitron", ui-monospace, monospace;
+      --font-data: "JetBrains Mono", ui-monospace, monospace;
+    }
+  </style>
 
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- Leaflet (2D AEQD engine) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet (2D AEQD engine) — vendored 1.9.4 -->
+  <link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css" />
+  <script defer src="assets/vendor/leaflet/leaflet.js"></script>
 
-  <!-- Cesium (3D digital elevation globe) — pinned, loaded async, viewer boots lazily -->
+  <!-- Cesium (3D digital elevation globe) — pinned CDN, lazy viewer boot.
+       Self-hosting option: npm i cesium@1.119.0, copy Build/Cesium to
+       assets/vendor/cesium and point CESIUM_BASE_URL there (~20 MB). -->
   <script>
     window.CESIUM_BASE_URL = "https://cdn.jsdelivr.net/npm/cesium@1.119.0/Build/Cesium/";
   </script>
@@ -300,7 +298,7 @@
           <span id="telemetrySource" class="hud-tag !text-[9px] !tracking-[0.1em] !normal-case"></span>
         </div>
         <div id="chartGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
-        <div id="trajectoryRow" class="hidden mt-3 flex items-center gap-2">
+        <div id="trajectoryRow" class="hidden mt-3 items-center gap-2">
           <span class="hud-tag">GPS TRAJECTORY DETECTED IN DUMP</span>
           <button id="btnToggleTrajectory" class="hud-btn !py-1">SHOW ON MAP</button>
         </div>

@@ -1,14 +1,16 @@
 {
   "name": "globeorflat-hub",
   "version": "1.0.0",
-  "description": "GlobeOrFlat Open Science Hub — zero-build public SPA over the Cloudflare D1 API (Cesium 3D globe + Leaflet AEQD flat plane)",
+  "description": "GlobeOrFlat Open Science Hub \u2014 zero-build public SPA over the Cloudflare D1 API (Cesium 3D globe + Leaflet AEQD flat plane)",
   "license": "MIT",
   "author": "AndrexTheDev",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "start": "python3 -m http.server 8080 --bind 0.0.0.0",
-    "test": "node test/helpers.test.js"
+    "test": "node test/helpers.test.js",
+    "deploy": "npx wrangler@latest pages deploy . --project-name globeorflat-hub",
+    "deploy:print": "npx wrangler@latest pages project list"
   },
   "repository": {
     "type": "git",

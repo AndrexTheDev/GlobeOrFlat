@@ -1,0 +1,16 @@
+# Cloudflare Pages header rules (applied automatically on deploy)
+# Security baseline + sensible caching. The API (CORS: *) lives on the Worker;
+# this static hub never handles secrets.
+
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://cdn.jsdelivr.net; connect-src 'self' https: blob:; worker-src blob:;
+
+/assets/*
+  Cache-Control: public, max-age=86400
+
+/assets/land_aeqd.json
+  Cache-Control: public, max-age=604800, immutable

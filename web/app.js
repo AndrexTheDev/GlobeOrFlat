@@ -341,6 +341,7 @@ const state = {
   flatTrajectoryLayer: null,
   cesium: null, // { viewer, entitiesReady }
   cesiumBooting: false,
+  cesiumBlocked: false, // worker threads unavailable → 2D-only mode
   projection: "3d",
 };
 
@@ -787,6 +788,28 @@ function plotFlatTrajectory(traj) {
 // 6 · 3D GLOBE ENGINE — Cesium (lazy boot, OSM + ellipsoid, optional Ion)
 // ===========================================================================
 
+/**
+ * Cesium builds globe geometry in web workers. If the environment blocks
+ * worker threads (hardened kiosks, exotic sandboxes), the globe would stay
+ * an empty black sphere — detect that and degrade to the 2D engine instead.
+ */
+function detectWorkerSupport(timeoutMs = 2500) {
+  return new Promise((resolve) => {
+    try {
+      const url = URL.createObjectURL(
+        new Blob(["self.onmessage=function(e){self.postMessage(1)}"], { type: "text/javascript" }),
+      );
+      const w = new Worker(url);
+      const done = (ok) => { clearTimeout(timer); w.terminate(); URL.revokeObjectURL(url); resolve(ok); };
+      const timer = setTimeout(() => done(false), timeoutMs);
+      w.onmessage = () => done(true);
+      w.onerror = () => done(false);
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
+
 async function bootCesium() {
   if (state.cesium || state.cesiumBooting) return state.cesium;
   state.cesiumBooting = true;
@@ -795,6 +818,17 @@ async function bootCesium() {
   boot.classList.remove("hidden");
   boot.style.display = "flex";
   bootText.textContent = "BOOTING 3D ENGINE…";
+
+  const workersOk = await detectWorkerSupport();
+  if (!workersOk) {
+    state.cesiumBooting = false;
+    state.cesiumBlocked = true;
+    boot.style.display = "none";
+    document.getElementById("terrainChip").textContent = "TERRAIN: UNAVAILABLE";
+    toast("3D engine needs worker threads — not available here. 2D flat projection is active.");
+    setProjection("2d");
+    return null;
+  }
 
   try {
     if (typeof Cesium === "undefined") throw new Error("Cesium.js failed to load (CDN unreachable)");
@@ -811,6 +845,9 @@ async function bootCesium() {
       requestRenderMode: false,
     });
     viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString("#06202e");
+    // Uniform lighting — measurement dots must be legible on the night side too.
+    viewer.scene.globe.enableLighting = false;
+    viewer.scene.skyBox.show = true;
     state.cesium = { viewer, pointMap: new Map(), trajectoryEntity: null };
     boot.style.display = "none";
 
@@ -830,7 +867,9 @@ async function bootCesium() {
     plotCesiumPoints();
     return state.cesium;
   } catch (err) {
+    state.cesiumBlocked = true;
     bootText.textContent = "3D ENGINE UNAVAILABLE — SWITCHED TO 2D";
+    boot.style.display = "flex";
     toast(`Cesium failed: ${err.message}`);
     setTimeout(() => setProjection("2d"), 900);
     return null;
@@ -887,7 +926,7 @@ function plotCesiumTrajectory(traj) {
   if (cs.trajectoryEntity) cs.viewer.entities.remove(cs.trajectoryEntity);
   const positions = [];
   for (const [lat, lng] of traj.coords) {
-    positions.push(...Cesium.Cartesian3.fromDegrees(lng, lat, 12000));
+    positions.push(Cesium.Cartesian3.fromDegrees(lng, lat, 12000));
   }
   cs.trajectoryEntity = cs.viewer.entities.add({
     polyline: {
@@ -915,11 +954,19 @@ function flyCesiumTo(rec) {
 // ===========================================================================
 
 function setProjection(which) {
-  state.projection = which;
   const globeEl = document.getElementById("mapGlobe");
   const flatEl = document.getElementById("mapFlat");
   const b3 = document.getElementById("btn3d");
   const b2 = document.getElementById("btn2d");
+
+  if (which === "3d" && state.cesiumBlocked) {
+    // Hard-guard BEFORE mutating state: stay on the 2D engine.
+    b2.classList.add("active-2d");
+    b3.classList.remove("active-3d");
+    toast("3D projection unavailable in this environment (worker threads blocked).");
+    return;
+  }
+  state.projection = which;
 
   if (which === "3d") {
     b3.classList.add("active-3d");
@@ -1592,6 +1639,8 @@ async function boot() {
   setConnection("CONNECTING");
   await refresh();
   setProjection("3d"); // boots Cesium lazily (2D engine is already live beneath)
+  // test/beta hook (read-only introspection)
+  window.__GOF = state;
 }
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
