@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<!-- ==========================================================================
+  GlobeOrFlat — Open Science Hub
+  SPDX-License-Identifier: MIT
+
+  Public, zero-build SPA over the GlobeOrFlat Cloudflare D1 API (worker.ts):
+    GET /api/v1/measurements        public, paginated, filterable feed
+    GET /api/v1/measurements/:id    detail + presigned raw-dump link
+    GET /api/v1/measurements/:id/dump  raw sensor CSV stream (public)
+
+  Engines: Cesium.js (3D digital-elevation globe) and Leaflet.js on a custom
+  client-side Azimuthal Equidistant tile engine (the "flat Earth model" plane,
+  north-pole AEQD — the same projection the flat model canonicalizes on).
+  Styling: Tailwind (Play CDN) + styles.css HUD chrome.
+  Config:  see GOF_CONFIG at the top of app.js (?api= URL param wins).
+=========================================================================== -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GlobeOrFlat — Open Science Hub</title>
+  <meta name="description" content="Public citizen-geodesy data hub: cryptographically signed Earth-curvature measurements plotted on a 3D globe and on the flat-model azimuthal equidistant plane." />
+  <meta name="color-scheme" content="dark" />
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%2318e0ff' stroke-width='2'/%3E%3Cpath d='M3 16h26M16 3c6 7 6 19 0 26M16 3c-6 7-6 19 0 26' fill='none' stroke='%2318e0ff' stroke-width='1.4'/%3E%3C/svg%3E" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind (Play CDN — swap for a compiled build in production) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            gof: {
+              bg: "#0b1320", panel: "#102a43", deep: "#05080f",
+              cyan: "#18e0ff", green: "#4cff87", magenta: "#e93eff",
+              amber: "#ffb454", purple: "#9d7bff", ink: "#9be8ff",
+            },
+          },
+        },
+      },
+    };
+  </script>
+
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Leaflet (2D AEQD engine) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Cesium (3D digital elevation globe) — pinned, loaded async, viewer boots lazily -->
+  <script>
+    window.CESIUM_BASE_URL = "https://cdn.jsdelivr.net/npm/cesium@1.119.0/Build/Cesium/";
+  </script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.119.0/Build/Cesium/Widgets/widgets.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/cesium@1.119.0/Build/Cesium/Cesium.js"></script>
+
+  <script defer src="app.js"></script>
+</head>
+
+<body class="text-slate-200 antialiased">
+  <!-- ================================================================ HEADER -->
+  <header class="sticky top-0 z-40 border-b border-gof-cyan/20 bg-gof-deep/85 backdrop-blur">
+    <div class="mx-auto max-w-[1500px] px-4 sm:px-6 py-3 flex items-center gap-4">
+      <div class="flex items-center gap-3 min-w-0">
+        <svg viewBox="0 0 32 32" class="w-9 h-9 flex-none drop-shadow-[0_0_10px_rgba(24,224,255,0.6)]">
+          <circle cx="16" cy="16" r="13" fill="none" stroke="#18e0ff" stroke-width="2"/>
+          <path d="M3 16h26M16 3c6 7 6 19 0 26M16 3c-6 7-6 19 0 26" fill="none" stroke="#18e0ff" stroke-width="1.4"/>
+        </svg>
+        <div class="min-w-0">
+          <h1 class="font-hud text-sm sm:text-base font-black tracking-[0.18em] text-white truncate">
+            GLOBEORFLAT <span class="text-gof-cyan">//</span> OPEN SCIENCE HUB
+          </h1>
+          <p class="hud-tag hidden sm:block">citizen geodesy · signed sensor data · append-only ledger</p>
+        </div>
+      </div>
+
+      <div class="ml-auto flex items-center gap-2 sm:gap-3">
+        <button id="apiChip" class="hud-chip badge-PENDING !cursor-pointer" title="API connection — click to configure endpoint">
+          <span class="live-dot offline"></span><span id="apiChipText">CONNECTING</span>
+        </button>
+        <a class="hud-btn hidden md:inline-flex" href="https://github.com/AndrexTheDev/GlobeOrFlat" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" class="w-4 h-4 fill-current"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          SOURCE
+        </a>
+        <a class="hud-btn hud-btn-green" href="https://github.com/AndrexTheDev/GlobeOrFlat/releases/latest" target="_blank" rel="noopener" title="Android app — latest release APK">
+          <svg viewBox="0 0 24 24" class="w-4 h-4 fill-current"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.7-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.46 11.46 0 0 0-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48A10.81 10.81 0 0 0 1 18h22a10.81 10.81 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/></svg>
+          GET APK
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================== CAPSULE -->
+  <div id="demoBanner" class="hidden">
+    <div class="mx-auto max-w-[1500px] px-4 sm:px-6 pt-3">
+      <div class="hud-panel px-4 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span class="hud-chip badge-PENDING">OFFLINE CAPSULE</span>
+        <p class="font-data text-[11px] text-gof-ink/80 leading-relaxed">
+          Live API unreachable — rendering the bundled synthetic dataset. Point the hub at a live node via the
+          <button id="openSettingsFromBanner" class="underline decoration-gof-cyan/60 hover:text-gof-cyan">API endpoint settings</button>
+          (<span class="text-gof-cyan">?api=https://globeorflat-api.example.workers.dev</span>).
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================= HERO -->
+  <section class="mx-auto max-w-[1500px] px-4 sm:px-6 pt-5">
+    <div class="hud-panel p-4 sm:p-5">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div class="max-w-2xl">
+          <p class="hud-tag mb-1">MISSION</p>
+          <h2 class="font-hud text-lg sm:text-xl font-bold text-white leading-snug">
+            MEASURE THE HORIZON. <span class="text-gof-green">SIGN IT.</span> <span class="text-gof-magenta">PUBLISH IT.</span>
+          </h2>
+          <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+            Every record below was captured by the GlobeOrFlat Android sensor-fusion client and bound to a
+            hardware-backed ECDSA P-256 device signature. Raw telemetry is write-once storage; the ledger is
+            append-only. The same data is rendered on the
+            <span class="text-gof-green font-semibold">3D globe</span> and on the flat model's
+            <span class="text-gof-magenta font-semibold">azimuthal-equidistant plane</span> — judge both.
+          </p>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div class="stat-cell"><div class="stat-value" id="statTotal">—</div><div class="stat-label">measurements</div></div>
+          <div class="stat-cell"><div class="stat-value text-gof-green" id="statVerified">—</div><div class="stat-label">verified</div></div>
+          <div class="stat-cell"><div class="stat-value" id="statDevices">—</div><div class="stat-label">devices</div></div>
+          <div class="stat-cell"><div class="stat-value text-gof-magenta" id="statModes">—</div><div class="stat-label">modes active</div></div>
+        </div>
+      </div>
+      <div class="hud-rule mt-4 opacity-60"></div>
+    </div>
+  </section>
+
+  <!-- ================================================================== MAIN -->
+  <main class="mx-auto max-w-[1500px] px-4 sm:px-6 py-5 grid grid-cols-1 lg:grid-cols-[1fr_520px] gap-5">
+    <!-- ------------------------------------------------------ MAP + TOGGLE -->
+    <section class="hud-panel p-4 flex flex-col">
+      <div class="flex flex-wrap items-center gap-3 mb-3">
+        <p class="hud-tag">DUAL PROJECTION ENGINE</p>
+        <div class="projection-toggle" role="tablist" aria-label="Map projection">
+          <button id="btn3d" class="active-3d" role="tab" aria-selected="true">◈ 3D GLOBE PROJECTION</button>
+          <button id="btn2d" role="tab" aria-selected="false">▨ 2D FLAT PROJECTION</button>
+        </div>
+        <span id="terrainChip" class="hud-chip mode-HORIZON_DIP hidden lg:inline-flex" title="Cesium terrain source">TERRAIN: ELLIPSOID</span>
+        <div class="ml-auto flex items-center gap-2">
+          <span id="mapCount" class="hud-tag">0 PTS</span>
+        </div>
+      </div>
+      <div class="map-wrap hud-panel grow">
+        <div id="mapGlobe"></div>
+        <div id="mapFlat"></div>
+        <div id="mapBoot" class="boot-overlay"><div class="boot-ring"></div><span id="bootText">BOOTING 3D ENGINE…</span></div>
+      </div>
+      <p class="hud-tag mt-2 !tracking-[0.12em] !normal-case !text-[9.5px] leading-relaxed">
+        3D — Cesium digital elevation terrain (OSM imagery; set an Ion token in settings for world terrain).
+        2D — north-pole azimuthal-equidistant plane, coastlines Natural Earth 110m, tiles rendered client-side.
+        Click a point for the record drawer.
+      </p>
+    </section>
+
+    <!-- ------------------------------------------------------------- FEED -->
+    <section class="hud-panel p-4 flex flex-col min-h-[520px]">
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <p class="hud-tag">VERIFIED MEASUREMENT FEED</p>
+        <div class="ml-auto flex flex-wrap items-center gap-2">
+          <select id="filterStatus" class="hud-input">
+            <option value="ALL">STATUS: ALL</option>
+            <option value="VERIFIED" selected>STATUS: VERIFIED</option>
+            <option value="PENDING">STATUS: PENDING</option>
+            <option value="FLAGGED">STATUS: FLAGGED</option>
+            <option value="REJECTED">STATUS: REJECTED</option>
+          </select>
+          <select id="filterMode" class="hud-input">
+            <option value="">MODE: ALL</option>
+            <option>HORIZON_DIP</option>
+            <option>WATER_SIGHTLINE</option>
+            <option>TRACK_DRIVE</option>
+            <option>ERATOSTHENES</option>
+          </select>
+          <input id="filterDevice" class="hud-input w-28" placeholder="device…" spellcheck="false" />
+        </div>
+      </div>
+
+      <div class="hud-rule opacity-40 mb-1"></div>
+
+      <div class="grow overflow-auto" style="max-height: 560px">
+        <table class="hud-table" id="feedTable">
+          <thead>
+            <tr>
+              <th>Device</th><th>Mode</th><th>Alt&nbsp;m</th><th>Deviation</th><th>Status</th><th>Captured</th>
+            </tr>
+          </thead>
+          <tbody id="feedBody"></tbody>
+        </table>
+        <div id="feedSkeleton" class="p-3 space-y-2">
+          <div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div>
+          <div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 pt-3">
+        <span id="pageInfo" class="hud-tag">PAGE —/—</span>
+        <div class="ml-auto flex gap-2">
+          <button id="btnPrev" class="hud-btn !px-3 !py-1.5" disabled>◀ PREV</button>
+          <button id="btnNext" class="hud-btn !px-3 !py-1.5" disabled>NEXT ▶</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- =============================================================== FOOTER -->
+  <footer class="mt-6 border-t border-gof-cyan/15 bg-gof-deep/80">
+    <div class="mx-auto max-w-[1500px] px-4 sm:px-6 py-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-[12px] text-slate-400">
+      <div>
+        <p class="hud-tag mb-2">PROJECT</p>
+        <p class="leading-relaxed">
+          GlobeOrFlat is open-source citizen geodesy by <a class="text-gof-cyan hover:underline" href="https://github.com/AndrexTheDev" target="_blank" rel="noopener">AndrexTheDev</a>.
+          Code: <span class="text-gof-ink">MIT</span> · Data: <span class="text-gof-ink">CC0</span> (public domain).
+        </p>
+        <div class="flex gap-2 mt-3">
+          <a class="hud-btn !py-1.5" href="https://github.com/AndrexTheDev/GlobeOrFlat" target="_blank" rel="noopener">GITHUB REPO</a>
+          <button class="hud-btn !py-1.5" id="openSettings">API SETTINGS</button>
+        </div>
+      </div>
+      <div>
+        <p class="hud-tag mb-2">SCIENTIFIC DISCLAIMER</p>
+        <p class="leading-relaxed">
+          Consumer sensors carry real tolerances and atmospheric refraction varies around standard k=0.14.
+          Single measurements are evidence with uncertainty — cite spreads, not anecdotes. Not certified for
+          navigation, surveying, engineering or legal use.
+        </p>
+      </div>
+      <div>
+        <p class="hud-tag mb-2">SAFETY</p>
+        <p class="leading-relaxed">
+          Never operate the app while driving. Watch your surroundings near cliffs, water and traffic.
+          The horizon is not worth your life.
+        </p>
+        <p class="hud-tag mt-4 !text-[9px]">CONTACT: <a class="text-gof-cyan hover:underline" href="mailto:hippie.highho@gmail.com">hippie.highho@gmail.com</a></p>
+      </div>
+    </div>
+    <div class="border-t border-white/5">
+      <div class="mx-auto max-w-[1500px] px-4 sm:px-6 py-3 flex flex-wrap gap-2 items-center">
+        <p class="hud-tag !text-[9px]">GLOBEORFLAT OPEN SCIENCE HUB · DATA CC0 · CODE MIT · <span id="year"></span></p>
+        <!-- Cesium credits are routed here by app.js (attribution required) -->
+        <div id="cesiumCredits" class="ml-auto"></div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- =============================================================== DRAWER -->
+  <div id="drawerBackdrop"></div>
+  <aside id="drawer" aria-label="Measurement details">
+    <div class="flex items-center gap-3 px-4 py-3 border-b border-gof-cyan/20 bg-gof-deep/60">
+      <p class="hud-tag">RECORD INSPECTOR</p>
+      <span id="drawerBadge" class="hud-chip badge-PENDING ml-1">PENDING</span>
+      <button id="drawerClose" class="ml-auto hud-btn !px-2.5 !py-1" aria-label="Close drawer">✕ ESC</button>
+    </div>
+    <div class="drawer-scroll grow p-4 sm:p-5 space-y-5">
+      <!-- identity + integrity -->
+      <div>
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h3 id="drawerTitle" class="font-hud text-base font-bold text-white tracking-wide">—</h3>
+          <span id="drawerMode" class="hud-chip mode-chip mode-HORIZON_DIP">—</span>
+        </div>
+        <p id="drawerSub" class="font-data text-[10.5px] text-slate-400 mt-1">—</p>
+        <div class="kv-strip mt-3" id="drawerKv"></div>
+        <div class="kv-strip mt-1.5" id="drawerIntegrity"></div>
+      </div>
+
+      <!-- 9:16 share card + verdict -->
+      <div class="flex flex-wrap gap-5">
+        <div class="share-card-frame"><canvas id="shareCardCanvas" width="540" height="960"></canvas></div>
+        <div class="grow min-w-[240px] flex flex-col">
+          <p class="hud-tag mb-2">MATCH SCORE</p>
+          <p id="drawerHeadline" class="font-hud text-xl font-black leading-snug">—</p>
+          <p id="drawerVerdictNote" class="text-[12px] text-slate-400 mt-1.5 leading-relaxed">—</p>
+          <div class="mt-4">
+            <div class="hud-tag mb-1.5">MODEL COMPARISON</div>
+            <div id="drawerMatrix" class="space-y-1.5"></div>
+          </div>
+          <div class="mt-auto pt-4 flex flex-col gap-2">
+            <button id="btnShareCard" class="hud-btn hud-btn-magenta justify-center">◈ SHARE TO SOCIALS</button>
+            <button id="btnDownloadCard" class="hud-btn justify-center">⤓ DOWNLOAD 9:16 PNG (1080×1920)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- telemetry -->
+      <div>
+        <div class="flex items-center gap-2 mb-2">
+          <p class="hud-tag">RAW SENSOR TELEMETRY</p>
+          <span id="telemetrySource" class="hud-tag !text-[9px] !tracking-[0.1em] !normal-case"></span>
+        </div>
+        <div id="chartGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+        <div id="trajectoryRow" class="hidden mt-3 flex items-center gap-2">
+          <span class="hud-tag">GPS TRAJECTORY DETECTED IN DUMP</span>
+          <button id="btnToggleTrajectory" class="hud-btn !py-1">SHOW ON MAP</button>
+        </div>
+      </div>
+
+      <!-- dump actions -->
+      <div class="flex flex-wrap gap-2 border-t border-white/10 pt-4">
+        <a id="btnDownloadCsv" class="hud-btn hud-btn-green" href="#" download>⤓ DOWNLOAD CSV RAW DUMP</a>
+        <button id="btnCopySha" class="hud-btn">⧉ COPY SHA-256</button>
+        <a id="btnApiJson" class="hud-btn" href="#" target="_blank" rel="noopener">{ } API JSON</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============================================================= SETTINGS -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-[70] items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" data-close-settings></div>
+    <div class="hud-panel relative w-full max-w-lg p-5 space-y-4">
+      <div class="flex items-center gap-3">
+        <p class="hud-tag">API ENDPOINT</p>
+        <button class="ml-auto hud-btn !px-2 !py-1" data-close-settings>✕</button>
+      </div>
+      <p class="text-[12px] text-slate-400 leading-relaxed">
+        Base URL of the Cloudflare Worker (<span class="font-data text-gof-ink">globeorflat-api</span>). The hub appends
+        <span class="font-data text-gof-ink">/api/v1/measurements</span>. Saved to this browser; the
+        <span class="font-data text-gof-ink">?api=</span> URL parameter always wins. Leave empty to use same-origin
+        (works when this portal is deployed as a Worker static asset next to the API).
+      </p>
+      <input id="apiBaseInput" class="hud-input w-full font-data" placeholder="https://globeorflat-api.<your-subdomain>.workers.dev" spellcheck="false" />
+      <label class="flex items-start gap-2 text-[12px] text-slate-400">
+        <input id="ionTokenInput" type="password" class="hud-input grow font-data" placeholder="optional: Cesium Ion token → real digital-elevation world terrain" />
+      </label>
+      <p class="hud-tag !text-[9px] !normal-case leading-relaxed">
+        Ion tokens are per-account secrets — this one is stored only in your browser (localStorage) and never committed.
+      </p>
+      <div class="flex gap-2 justify-end">
+        <button id="settingsReset" class="hud-btn">RESET</button>
+        <button id="settingsSave" class="hud-btn hud-btn-green">SAVE & RECONNECT</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-host" id="toastHost"></div>
+
+  <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
+</body>
+</html>

@@ -114,10 +114,16 @@ class PdfReportService {
 
   void _addTelemetryPages(pw.Document doc, MeasurementSummary s, pw.FontTheme theme) {
     final List<List<String>> rows = s.telemetryRows(maxRows: 120);
+    // csvAnnotation('columns') is "<mode>,columns=a,b,..." — take the raw
+    // list after the 'columns=' marker, not the split tokens.
     final String? columnsAnnotation = s.csvAnnotation('columns');
-    final List<String> cols = columnsAnnotation != null &&
-            columnsAnnotation.contains(',')
-        ? _padHeader(columnsAnnotation.split(',').skip(1).take(6).toList())
+    final String colBody =
+        columnsAnnotation != null && columnsAnnotation.contains('columns=')
+            ? columnsAnnotation.substring(
+                columnsAnnotation.indexOf('columns=') + 'columns='.length)
+            : '';
+    final List<String> cols = colBody.isNotEmpty
+        ? _padHeader(colBody.split(',').map((c) => c.trim()).take(6).toList())
         : <String>['c0', 'c1', 'c2', 'c3', 'c4', 'c5'];
 
     const int rowsPerPage = 40;

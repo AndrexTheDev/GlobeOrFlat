@@ -1,0 +1,290 @@
+/* ============================================================================
+   GlobeOrFlat — Open Science Hub
+   SPDX-License-Identifier: MIT
+   Cyberpunk HUD styling, shared visual language with the Android client
+   (panels #102A43, base #0B1320, deep #05080F, cyan #18E0FF, green #4CFF87,
+   magenta #E93EFF, amber #FFB454, purple #9D7BFF).
+   Tailwind (Play CDN) handles layout; this file is the HUD chrome on top.
+   ========================================================================== */
+
+:root {
+  --gof-bg: #0b1320;
+  --gof-panel: #102a43;
+  --gof-deep: #05080f;
+  --gof-cyan: #18e0ff;
+  --gof-green: #4cff87;
+  --gof-magenta: #e93eff;
+  --gof-amber: #ffb454;
+  --gof-purple: #9d7bff;
+  --gof-ink: #9be8ff;
+}
+
+html { color-scheme: dark; }
+
+body {
+  background:
+    radial-gradient(1100px 500px at 70% -10%, rgba(24, 224, 255, 0.07), transparent 60%),
+    radial-gradient(900px 420px at 10% 110%, rgba(233, 62, 255, 0.05), transparent 60%),
+    var(--gof-bg);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/* Fine scanline overlay — the app's HUD signature. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.015) 0px,
+    rgba(255, 255, 255, 0.015) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+.font-hud { font-family: Orbitron, "JetBrains Mono", ui-monospace, monospace; }
+.font-data { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+/* ---------------------------------------------------------------- panels */
+.hud-panel {
+  position: relative;
+  background: linear-gradient(180deg, rgba(16, 42, 67, 0.92), rgba(16, 42, 67, 0.78));
+  border: 1px solid rgba(24, 224, 255, 0.16);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  box-shadow: 0 0 0 1px rgba(5, 8, 15, 0.6), 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+.hud-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(24, 224, 255, 0.35), transparent 24px) top left / 100% 1px no-repeat;
+}
+
+.hud-tag {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: rgba(155, 232, 255, 0.55);
+  text-transform: uppercase;
+}
+
+/* glow line under section titles */
+.hud-rule {
+  height: 1px;
+  background: linear-gradient(90deg, var(--gof-cyan), rgba(24, 224, 255, 0.05));
+  box-shadow: 0 0 8px rgba(24, 224, 255, 0.6);
+}
+
+/* --------------------------------------------------------------- buttons */
+.hud-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  font-family: Orbitron, "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gof-cyan);
+  border: 1px solid rgba(24, 224, 255, 0.4);
+  background: rgba(24, 224, 255, 0.06);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  transition: background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+  cursor: pointer;
+  user-select: none;
+}
+.hud-btn:hover { background: rgba(24, 224, 255, 0.16); box-shadow: 0 0 18px rgba(24, 224, 255, 0.25); }
+.hud-btn:active { transform: translateY(1px); }
+.hud-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.hud-btn-green { color: var(--gof-green); border-color: rgba(76, 255, 135, 0.45); background: rgba(76, 255, 135, 0.07); }
+.hud-btn-green:hover { background: rgba(76, 255, 135, 0.16); box-shadow: 0 0 18px rgba(76, 255, 135, 0.25); }
+.hud-btn-magenta { color: var(--gof-magenta); border-color: rgba(233, 62, 255, 0.45); background: rgba(233, 62, 255, 0.07); }
+.hud-btn-magenta:hover { background: rgba(233, 62, 255, 0.16); box-shadow: 0 0 18px rgba(233, 62, 255, 0.25); }
+
+/* ----------------------------------------------------------------- chips */
+.hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.55rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.badge-VERIFIED { color: var(--gof-green); background: rgba(76, 255, 135, 0.08); box-shadow: 0 0 12px rgba(76, 255, 135, 0.25); }
+.badge-PENDING  { color: var(--gof-amber);  background: rgba(255, 180, 84, 0.08); box-shadow: 0 0 12px rgba(255, 180, 84, 0.2); }
+.badge-FLAGGED  { color: var(--gof-purple); background: rgba(157, 123, 255, 0.1); box-shadow: 0 0 12px rgba(157, 123, 255, 0.25); }
+.badge-REJECTED { color: var(--gof-magenta);background: rgba(233, 62, 255, 0.08); box-shadow: 0 0 12px rgba(233, 62, 255, 0.25); }
+
+.mode-HORIZON_DIP     { color: var(--gof-cyan); }
+.mode-WATER_SIGHTLINE { color: #35d0ff; }
+.mode-TRACK_DRIVE     { color: var(--gof-magenta); }
+.mode-ERATOSTHENES    { color: var(--gof-amber); }
+.mode-chip { background: rgba(255, 255, 255, 0.03); }
+
+/* pulsing live dot */
+.live-dot { width: 7px; height: 7px; border-radius: 9999px; background: var(--gof-green); box-shadow: 0 0 8px var(--gof-green); animation: pulse 1.8s ease-in-out infinite; }
+.live-dot.offline { background: var(--gof-amber); box-shadow: 0 0 8px var(--gof-amber); }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* ----------------------------------------------------------------- table */
+.hud-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.hud-table thead th {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(155, 232, 255, 0.5);
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(24, 224, 255, 0.25);
+  background: rgba(24, 224, 255, 0.05);
+  white-space: nowrap;
+}
+.hud-table tbody td { padding: 8px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
+.hud-table tbody tr { cursor: pointer; transition: background 0.12s ease; }
+.hud-table tbody tr:hover { background: rgba(24, 224, 255, 0.06); }
+.hud-table tbody tr.selected { background: rgba(24, 224, 255, 0.1); box-shadow: inset 2px 0 0 var(--gof-cyan); }
+
+/* --------------------------------------------------------------- toggles */
+.projection-toggle { display: inline-flex; border: 1px solid rgba(24, 224, 255, 0.35); clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+.projection-toggle button {
+  font-family: Orbitron, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 0.5rem 1rem;
+  color: rgba(155, 232, 255, 0.6);
+  background: transparent;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.projection-toggle button.active-3d { background: rgba(76, 255, 135, 0.14); color: var(--gof-green); box-shadow: inset 0 0 18px rgba(76, 255, 135, 0.15); }
+.projection-toggle button.active-2d { background: rgba(233, 62, 255, 0.12); color: var(--gof-magenta); box-shadow: inset 0 0 18px rgba(233, 62, 255, 0.15); }
+
+/* ------------------------------------------------------------------ maps */
+#mapGlobe, #mapFlat { position: absolute; inset: 0; }
+#mapGlobe.hidden-plain { display: none; }
+.map-wrap { position: relative; min-height: 460px; background: var(--gof-deep); }
+
+/* Cesium chrome → dark */
+.cesium-widget-credits { font-size: 9px; opacity: 0.45; }
+.cesium-viewer-bottom { right: 4px; bottom: 2px; }
+.cesium-performance-display-default-container { display: none; }
+
+/* Leaflet → dark HUD */
+.leaflet-container { background: #06121d; font-family: "JetBrains Mono", monospace; }
+.leaflet-control-attribution { background: rgba(5, 8, 15, 0.7) !important; color: rgba(155, 232, 255, 0.4) !important; font-size: 8.5px !important; }
+.leaflet-control-attribution a { color: rgba(24, 224, 255, 0.6) !important; }
+.leaflet-bar a { background: #102a43 !important; color: #18e0ff !important; border-color: rgba(24, 224, 255, 0.3) !important; }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #102a43; color: #d7f6ff; border: 1px solid rgba(24, 224, 255, 0.4); box-shadow: 0 0 24px rgba(0,0,0,0.6); border-radius: 2px; }
+.leaflet-popup-content { font-family: "JetBrains Mono", monospace; font-size: 10.5px; margin: 10px 12px; }
+
+/* --------------------------------------------------------------- drawer */
+#drawerBackdrop {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(3, 6, 12, 0.72);
+  backdrop-filter: blur(4px);
+  display: none;
+}
+#drawerBackdrop.open { display: block; }
+
+#drawer {
+  position: fixed; top: 0; right: 0; z-index: 61;
+  height: 100%;
+  width: min(880px, 100vw);
+  background: linear-gradient(180deg, #0e2038, #0a1728);
+  border-left: 1px solid rgba(24, 224, 255, 0.35);
+  box-shadow: -30px 0 80px rgba(0, 0, 0, 0.65);
+  transform: translateX(102%);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex;
+  flex-direction: column;
+}
+#drawer.open { transform: translateX(0); }
+
+#drawer .drawer-scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(24,224,255,0.35) transparent; }
+#drawer .drawer-scroll::-webkit-scrollbar { width: 8px; }
+#drawer .drawer-scroll::-webkit-scrollbar-thumb { background: rgba(24, 224, 255, 0.3); }
+
+/* -------------------------------------------------- 9:16 share card */
+.share-card-frame {
+  width: 270px;
+  height: 480px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(24, 224, 255, 0.45);
+  box-shadow: 0 0 34px rgba(24, 224, 255, 0.22), 0 18px 50px rgba(0, 0, 0, 0.6);
+  background: #05080f;
+  flex: none;
+}
+.share-card-frame canvas { width: 100%; height: 100%; display: block; }
+
+/* ---------------------------------------------------------------- charts */
+.chart-box { position: relative; }
+.chart-box canvas { width: 100%; height: 110px; display: block; }
+
+/* ------------------------------------------------------------- stat cells */
+.stat-cell { position: relative; padding: 10px 12px; background: rgba(5, 8, 15, 0.5); border: 1px solid rgba(24, 224, 255, 0.14); }
+.stat-cell .stat-value { font-family: Orbitron, monospace; font-size: 20px; font-weight: 800; color: var(--gof-ink); }
+.stat-cell .stat-label { font-family: "JetBrains Mono", monospace; font-size: 9px; letter-spacing: 0.2em; color: rgba(155, 232, 255, 0.45); text-transform: uppercase; }
+
+/* -------------------------------------------------------------- misc UI */
+.hud-input {
+  background: rgba(5, 8, 15, 0.6);
+  border: 1px solid rgba(24, 224, 255, 0.25);
+  color: #d7f6ff;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  padding: 6px 9px;
+  outline: none;
+}
+.hud-input:focus { border-color: rgba(24, 224, 255, 0.6); box-shadow: 0 0 12px rgba(24, 224, 255, 0.15); }
+select.hud-input option { background: #102a43; }
+
+.kv-strip { display: flex; gap: 0; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(5, 8, 15, 0.55); }
+.kv-strip > div { flex: 1 1 0; padding: 7px 10px; min-width: 0; }
+.kv-strip > div + div { border-left: 1px solid rgba(255, 255, 255, 0.06); }
+.kv-strip .k { font-family: "JetBrains Mono", monospace; font-size: 8.5px; letter-spacing: 0.18em; color: rgba(155, 232, 255, 0.4); text-transform: uppercase; }
+.kv-strip .v { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--gof-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.toast-host { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 90; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.toast {
+  font-family: "JetBrains Mono", monospace; font-size: 11px;
+  background: rgba(16, 42, 67, 0.95); border: 1px solid rgba(24, 224, 255, 0.5);
+  color: #d7f6ff; padding: 8px 16px; letter-spacing: 0.06em;
+  box-shadow: 0 0 24px rgba(24, 224, 255, 0.2);
+  animation: toast-in 0.2s ease;
+}
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.skeleton-row { height: 30px; background: linear-gradient(90deg, rgba(24,224,255,0.05), rgba(24,224,255,0.12), rgba(24,224,255,0.05)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+.boot-overlay {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  background: rgba(5, 8, 15, 0.85);
+  font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: 0.2em;
+  color: var(--gof-cyan);
+}
+.boot-ring { width: 46px; height: 46px; border-radius: 9999px; border: 2px solid rgba(24,224,255,0.2); border-top-color: var(--gof-cyan); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 1023px) {
+  .map-wrap { min-height: 380px; }
+}

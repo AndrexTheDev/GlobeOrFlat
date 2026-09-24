@@ -1,0 +1,18 @@
+{
+  "name": "globeorflat-hub",
+  "version": "1.0.0",
+  "description": "GlobeOrFlat Open Science Hub — zero-build public SPA over the Cloudflare D1 API (Cesium 3D globe + Leaflet AEQD flat plane)",
+  "license": "MIT",
+  "author": "AndrexTheDev",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "python3 -m http.server 8080 --bind 0.0.0.0",
+    "test": "node test/helpers.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AndrexTheDev/GlobeOrFlat.git"
+  },
+  "comment": "No build step and no runtime npm dependencies: Leaflet and Cesium load from CDNs in the browser. The commonjs type scopes node-side helper tests (app.js is a plain browser script)."
+}
