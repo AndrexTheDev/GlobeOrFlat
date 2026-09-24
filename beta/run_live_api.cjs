@@ -144,7 +144,8 @@ async function seedVerifiedRecord() {
   check("hub connected to live worker (?api=)", mode === "live", `mode=${mode}`);
 
   const chip = await page.$eval("#apiChipText", (el) => el.textContent);
-  check("connection chip = API LIVE", chip === "API LIVE", chip);
+  // security hardening: a custom endpoint is always surfaced as "… · CUSTOM"
+  check("connection chip = API LIVE", chip === "API LIVE" || chip === "API LIVE · CUSTOM", chip);
 
   const bannerHidden = await page.$eval("#demoBanner", (el) => el.classList.contains("hidden"));
   check("offline-capsule banner hidden", bannerHidden);
