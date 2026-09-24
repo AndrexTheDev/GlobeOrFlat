@@ -350,6 +350,20 @@ If you use GlobeOrFlat data in a publication, please cite the project and includ
 public domain (CC0) to the maximum extent permitted by law.
 
 ## Local development & testing
+### Extended audit suites (this branch)
+
+- `node scripts/smoke_test.mjs` — 15-step happy path (sign → upload → verify → dump).
+- `node scripts/audit_backend.mjs` — 21 edge-case checks (validation, anti-replay
+  window, key rotation, CORS, ledger flow); add `--triggers` to prove the
+  storage-layer append-only triggers abort UPDATE/DELETE.
+- `node beta/run_beta.cjs` — 30-check headless-browser matrix of the web hub
+  (screenshots in `beta/screenshots/`).
+- `node beta/run_live_api.cjs` — 12-check browser ⇄ live-worker integration
+  (self-seeds a signed, VERIFIED record through the real ingest + ledger).
+- `cd web && npm test` — pure-helper unit asserts (formula mirrors, CSV parser).
+- `cd beta && node run_beta.cjs` after `cd web && python3 -m http.server 8080` and
+  `bash beta/serve_mirrors.sh` (or `node beta/mirror_server.cjs /tmp/gof-cesium 8081`).
+
 
 ```bash
 npm run dev                # starts wrangler dev on http://0.0.0.0:8787
