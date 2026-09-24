@@ -1,6 +1,6 @@
 # GlobeOrFlat — Android Client (Flutter)
 
-The citizen-science companion app to the [GlobeOrFlat backend](../../README.md).
+The citizen-science companion app to the [GlobeOrFlat platform](../README.md).
 Implements the full measurement pipeline: **sensors → EKF fusion → guided
 calibration → offline queue → Keystore-signed upload** to the append-only
 Cloudflare Workers API.
