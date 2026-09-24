@@ -79,6 +79,11 @@ Built on Cloudflare Workers + [Hono](https://hono.dev) + Cloudflare D1 (SQLite) 
 EKF, Android Keystore signing, offline queue + auto-sync, and the interactive
 3D calibration screen. See [`app/README.md`](./app/README.md).
 
+**Web portal:** the public Open Science Hub lives in [`web/`](./web) — a
+zero-build SPA over this API: verified feed, Cesium 3D globe vs Leaflet
+north-pole Azimuthal-Equidistant "flat model" plane, record inspector with
+raw telemetry charts and CSV dump downloads. See [`web/README.md`](./web/README.md).
+
 ## Quickstart
 
 Prerequisites: Node.js ≥ 18, an npm account-free [Cloudflare account](https://dash.cloudflare.com/) (Workers free plan is sufficient).
