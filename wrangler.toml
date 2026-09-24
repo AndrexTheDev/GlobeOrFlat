@@ -1,0 +1,64 @@
+# ----------------------------------------------------------------------------
+# GlobeOrFlat API — Cloudflare Worker configuration
+# SPDX-License-Identifier: MIT
+# ----------------------------------------------------------------------------
+#
+# One-time provisioning:
+#   npx wrangler d1 create globeorflat
+#   npx wrangler r2 bucket create globeorflat-raw-sensor-dumps
+#   -> paste the returned D1 database_id below.
+#
+# Apply the schema (local first, then remote):
+#   npm run db:schema:local
+#   npm run db:schema:remote
+#
+# Secrets (do NOT put these in this file):
+#   npx wrangler secret put CLIENT_INGEST_TOKEN
+#   npx wrangler secret put ADMIN_TOKEN
+#
+# Deploy:
+#   npm run deploy
+# ----------------------------------------------------------------------------
+
+name = "globeorflat-api"
+main = "worker.ts"
+compatibility_date = "2026-09-01"
+
+# ----------------------------------------------------------------------------
+# Bindings
+# ----------------------------------------------------------------------------
+
+# D1 (SQLite) — metadata + append-only verification ledger.
+[[d1_databases]]
+binding = "DB"
+database_name = "globeorflat"
+# Replace after `wrangler d1 create globeorflat` (not required for local dev).
+database_id = "00000000-0000-0000-0000-000000000000"
+
+# R2 — raw sensor dumps (CSV), written once, never overwritten or deleted.
+[[r2_buckets]]
+binding = "RAW_DUMPS"
+bucket_name = "globeorflat-raw-sensor-dumps"
+
+# ----------------------------------------------------------------------------
+# Non-secret configuration (overridable per environment)
+# ----------------------------------------------------------------------------
+[vars]
+MAX_SENSOR_DUMP_BYTES = "5242880"     # 5 MiB max raw sensor dump per upload
+PRESIGN_TTL_SECONDS = "3600"          # lifetime of presigned R2 download links
+SIGNATURE_MAX_SKEW_MS = "300000"      # +/- 5 min anti-replay clock skew window
+AUTO_VERIFY_SIGNED_UPLOADS = "false"  # if "true", signature-valid uploads enter the public feed immediately (moderators can still append REJECTED events)
+
+# ----------------------------------------------------------------------------
+# Optional: Workers rate limiting (beta binding).
+# Uncomment to enable a platform-level rate limiter; the worker degrades
+# gracefully (allow-all) when the binding is absent.
+#
+# [[unsafe.bindings]]
+# name = "RATE_LIMITER"
+# type = "ratelimit"
+# namespace_id = "1001"
+# ----------------------------------------------------------------------------
+
+[observability]
+enabled = true

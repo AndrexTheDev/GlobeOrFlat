@@ -1,0 +1,11 @@
+# Copy to `.dev.vars` for `wrangler dev`. These local defaults match the smoke
+# test (scripts/smoke_test.mjs). Production values are set with:
+#   npx wrangler secret put CLIENT_INGEST_TOKEN
+#   npx wrangler secret put ADMIN_TOKEN
+
+# Shared secret carried by every GlobeOrFlat client app build.
+# Grants ONLY ingest + device registration — no read-modify capabilities exist.
+CLIENT_INGEST_TOKEN=local-dev-ingest-token
+
+# Moderator/admin token for the append-only verification ledger.
+ADMIN_TOKEN=local-dev-admin-token

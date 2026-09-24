@@ -1,0 +1,48 @@
+{
+  "name": "globeorflat-backend",
+  "version": "1.0.0",
+  "description": "Append-only citizen-science API for Earth-curvature measurements — Cloudflare Workers + Hono + D1 + R2",
+  "license": "MIT",
+  "author": "AndrexTheDev",
+  "homepage": "https://github.com/AndrexTheDev/GlobeOrFlat#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AndrexTheDev/GlobeOrFlat.git"
+  },
+  "bugs": "https://github.com/AndrexTheDev/GlobeOrFlat/issues",
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "hono",
+    "d1",
+    "r2",
+    "citizen-science",
+    "earth-curvature",
+    "append-only",
+    "ecdsa"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "wrangler dev --ip 0.0.0.0 --port 8787",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "types": "wrangler types",
+    "db:schema:local": "wrangler d1 execute globeorflat --local --file=./schema.sql -y",
+    "db:schema:remote": "wrangler d1 execute globeorflat --remote --file=./schema.sql -y",
+    "db:ping": "wrangler d1 execute globeorflat --local --command \"SELECT 'pong' AS ping\"",
+    "smoke:test": "node scripts/smoke_test.mjs",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "hono": "^4.9.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260921.1",
+    "typescript": "^5.5.0",
+    "wrangler": "^4.0.0"
+  }
+}

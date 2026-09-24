@@ -1,0 +1,13 @@
+# node modules
+node_modules/
+
+# wrangler local state (D1 sqlite files, local R2 objects, .dev.vars cache)
+.wrangler/
+
+# local secrets — never commit
+.dev.vars
+
+# build/editor noise
+dist/
+*.log
+.DS_Store
